@@ -49,6 +49,38 @@ placeholders. Fully browsable with zero credentials.
    Calendar are requested at sign-in; `access_type=offline` captures the refresh
    token). The app switches from demo to live automatically once env is present.
 
+## Deploy to Vercel
+
+The repo is Vercel-ready: `vercel.json` sets the Vite framework, build command,
+output dir, an SPA rewrite (so client routes like `/tasks` and refreshes don't
+404), and immutable caching for hashed assets. The backend stays on Supabase —
+Vercel only serves the static SPA.
+
+**Via the Vercel dashboard (recommended):**
+1. **Add New… → Project → Import** `princeacquahandam-debug/madeea-hub`.
+2. Framework preset auto-detects **Vite**. Leave build command (`npm run build`)
+   and output dir (`dist`) as-is.
+3. **Environment Variables** — add for Production + Preview:
+   - `VITE_SUPABASE_URL` = your Supabase URL
+   - `VITE_SUPABASE_ANON_KEY` = your anon key
+   (Do **not** add `OPENAI_API_KEY` here — it lives only in Supabase Edge
+   Function secrets, never in the frontend.)
+4. **Deploy.**
+
+**Via CLI** (from the project root):
+```bash
+vercel link          # one-time, links to the project
+vercel env add VITE_SUPABASE_URL
+vercel env add VITE_SUPABASE_ANON_KEY
+vercel --prod
+```
+
+**After the first deploy — update auth allow-lists** (or Google login + redirects break):
+- **Supabase → Authentication → URL Configuration:** add your Vercel URL
+  (`https://<app>.vercel.app`) to **Site URL** and **Redirect URLs**.
+- **Google Cloud → OAuth client:** add the Vercel URL to **Authorized JavaScript
+  origins** and the Supabase callback to **Authorized redirect URIs**.
+
 ## Status (this build)
 - ✅ **Phase 0–1:** app shell, routing, auth (email + Google), all 9 views ported
   and interactive on seed data, responsive layout, brand-matched theme.
