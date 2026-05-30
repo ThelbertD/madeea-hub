@@ -30,7 +30,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <PageHeader title={`Good afternoon, ${user?.name?.split(" ")[0] ?? "Sarah"}.`} subtitle="Here's your command center." />
+      <PageHeader title={`Good afternoon, ${user?.name?.split(" ")[0] ?? "there"}.`} subtitle="Here's your command center." />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {kpis.map((kpi, i) => {

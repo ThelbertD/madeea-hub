@@ -151,4 +151,55 @@ export function useAutomations() {
   });
 }
 
+export function useAutomationMutations() {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["automations"] });
+
+  const toggle = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "active" | "paused" }) => {
+      if (!supabase) return;
+      const { error } = await supabase.from("automations").update({ status }).eq("id", id);
+      if (error) throw error;
+    },
+    onSettled: invalidate,
+  });
+
+  const runNow = useMutation({
+    mutationFn: async ({ id, total_runs }: { id: string; total_runs: number }) => {
+      if (!supabase) return;
+      const { error } = await supabase
+        .from("automations")
+        .update({ total_runs: total_runs + 1, last_run_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSettled: invalidate,
+  });
+
+  const create = useMutation({
+    mutationFn: async (input: { name: string; description: string; trigger: string; action: string }) => {
+      if (!supabase) return;
+      const { error } = await supabase.from("automations").insert({ ...input, status: "active", is_custom: true });
+      if (error) throw error;
+    },
+    onSettled: invalidate,
+  });
+
+  return { toggle, runNow, create };
+}
+
+// ---------------- messages ----------------
+export function useMessageMutations() {
+  const qc = useQueryClient();
+  const setCategory = useMutation({
+    mutationFn: async ({ id, category }: { id: string; category: Message["category"] }) => {
+      if (!supabase) return;
+      const { error } = await supabase.from("messages").update({ category }).eq("id", id);
+      if (error) throw error;
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["messages"] }),
+  });
+  return { setCategory };
+}
+
 export { live };

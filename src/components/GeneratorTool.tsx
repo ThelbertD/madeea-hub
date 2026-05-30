@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Sparkles, FileText } from "lucide-react";
 import type { StudioFormat } from "@/lib/constants";
 import { generate } from "@/lib/ai";
+import { useClients } from "@/data/hooks";
 
 export function GeneratorTool({
   tool,
@@ -17,6 +18,10 @@ export function GeneratorTool({
   const [output, setOutput] = useState("");
   const [busy, setBusy] = useState(false);
   const active = formats.find((f) => f.key === activeKey)!;
+  const { data: clients = [] } = useClients();
+  // Replace any hardcoded client-list options with the user's real clients.
+  const optionsFor = (fieldName: string, fallback?: string[]) =>
+    fieldName === "client" ? [...clients.map((c) => c.name), "Internal"] : fallback;
 
   function selectFormat(key: string) {
     setActiveKey(key);
@@ -80,7 +85,7 @@ export function GeneratorTool({
                     onChange={(e) => setValues((v) => ({ ...v, [field.name]: e.target.value }))}
                   >
                     <option value="">Select {field.label}...</option>
-                    {field.options?.map((o) => (
+                    {optionsFor(field.name, field.options)?.map((o) => (
                       <option key={o} value={o}>
                         {o}
                       </option>

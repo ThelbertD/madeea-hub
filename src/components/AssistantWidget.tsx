@@ -4,9 +4,9 @@ import { assistantChat, type ChatMessage } from "@/lib/ai";
 import { useAuth } from "@/hooks/useAuth";
 
 const SUGGESTIONS = [
-  "Draft a follow-up email to James about the board deck",
-  "What are Sarah's tasks for today?",
-  "Summarise NovaMed's key details",
+  "Draft a follow-up email to a client",
+  "What are my tasks for today?",
+  "Summarise a client's key details",
 ];
 
 export function AssistantWidget() {
@@ -61,7 +61,7 @@ export function AssistantWidget() {
         {messages.length === 0 && (
           <>
             <div className="rounded-lg bg-surface-2 p-3 text-sm">
-              Hello {user?.name?.split(" ")[0] ?? "Sarah"}. I'm your MadeEA AI Assistant. I can help
+              Hello {user?.name?.split(" ")[0] ?? "there"}. I'm your MadeEA AI Assistant. I can help
               you draft communications, summarise client info, manage tasks, and more. What can I
               help with today?
             </div>

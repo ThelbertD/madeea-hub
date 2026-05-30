@@ -45,7 +45,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             {user?.initials ?? "SM"}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{user?.name ?? "Sarah Mitchell"}</p>
+            <p className="truncate text-sm font-medium">{user?.name ?? "—"}</p>
             <p className="truncate text-xs text-faint">Elite EA</p>
           </div>
         </div>
