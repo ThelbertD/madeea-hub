@@ -1,22 +1,44 @@
 import { useState } from "react";
-import { MessageSquare, ChevronRight, CheckCircle2 } from "lucide-react";
+import { MessageSquare, ChevronRight, CheckCircle2, Plus, Trash2 } from "lucide-react";
 import type { Client } from "@/types/db";
 import { Badge, PageHeader, Modal } from "@/components/ui";
 import { initials } from "@/lib/utils";
-import { useClients, useTasks, useMeetings } from "@/data/hooks";
+import { useClients, useTasks, useMeetings, useClientMutations } from "@/data/hooks";
+
+const BLANK = { name: "", title: "", company: "", preferred_channel: "Email", tone: "Formal", tags: "", bio: "", preferences_notes: "" };
 
 export default function ClientVault() {
   const { data: clients = [], isLoading } = useClients();
   const { data: tasks = [] } = useTasks();
   const { data: meetings = [] } = useMeetings();
+  const { create, remove } = useClientMutations();
   const [open, setOpen] = useState<Client | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState(BLANK);
+
+  function submit() {
+    if (!form.name.trim()) return;
+    create.mutate({
+      name: form.name.trim(), title: form.title, company: form.company,
+      preferred_channel: form.preferred_channel, tone: form.tone,
+      tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
+      bio: form.bio, preferences_notes: form.preferences_notes,
+    });
+    setForm(BLANK); setAdding(false);
+  }
+  const set = (k: keyof typeof BLANK) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const statusTone = (s: string) =>
     s.toLowerCase().includes("urgent") ? "urgent" : s.toLowerCase().includes("progress") ? "in_progress" : "pending";
 
   return (
     <div>
-      <PageHeader title="Client Vault" subtitle="Complete profiles and preferences for every client" />
+      <PageHeader
+        title="Client Vault"
+        subtitle="Complete profiles and preferences for every client"
+        action={<button className="btn-primary" onClick={() => setAdding(true)}><Plus size={15} /> New Client</button>}
+      />
 
       {isLoading ? (
         <p className="text-sm text-faint">Loading clients…</p>
@@ -25,16 +47,23 @@ export default function ClientVault() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {clients.map((c) => (
-            <div key={c.id} className="card flex flex-col p-5">
+            <div key={c.id} className="card group flex flex-col p-5">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-accent/20 text-sm font-semibold text-accent-soft">
                   {initials(c.name)}
                 </div>
-                <div>
+                <div className="flex-1">
                   <h3 className="font-semibold">{c.name}</h3>
                   <p className="text-xs text-faint">{c.title}</p>
                   <p className="text-xs text-faint">{c.company}</p>
                 </div>
+                <button
+                  className="text-faint opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
+                  onClick={() => remove.mutate(c.id)}
+                  aria-label="Delete client"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
               {(c.preferred_channel || c.tone) && (
                 <div className="mt-4 flex items-center gap-1.5 text-xs text-muted">
@@ -114,6 +143,32 @@ export default function ClientVault() {
             </div>
           );
         })()}
+      </Modal>
+
+      <Modal open={adding} onClose={() => setAdding(false)}>
+        <h2 className="mb-4 text-lg font-semibold">New Client</h2>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="field-label">Name</label><input className="input" autoFocus value={form.name} onChange={set("name")} placeholder="Full name" /></div>
+            <div><label className="field-label">Title</label><input className="input" value={form.title} onChange={set("title")} placeholder="e.g. CEO" /></div>
+          </div>
+          <div><label className="field-label">Company</label><input className="input" value={form.company} onChange={set("company")} placeholder="Company" /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="field-label">Preferred channel</label>
+              <select className="input" value={form.preferred_channel} onChange={set("preferred_channel")}>
+                <option>Email</option><option>Slack</option><option>WhatsApp</option><option>Phone</option>
+              </select>
+            </div>
+            <div><label className="field-label">Tone</label><input className="input" value={form.tone} onChange={set("tone")} placeholder="e.g. Formal" /></div>
+          </div>
+          <div><label className="field-label">Tags (comma separated)</label><input className="input" value={form.tags} onChange={set("tags")} placeholder="Board Prep, Travel" /></div>
+          <div><label className="field-label">Biography</label><textarea className="input min-h-[70px]" value={form.bio} onChange={set("bio")} /></div>
+          <div><label className="field-label">Preferences & Notes</label><textarea className="input min-h-[70px]" value={form.preferences_notes} onChange={set("preferences_notes")} /></div>
+          <button className="btn-primary w-full" onClick={submit} disabled={!form.name.trim() || create.isPending}>
+            {create.isPending ? "Saving…" : "Add Client"}
+          </button>
+        </div>
       </Modal>
     </div>
   );

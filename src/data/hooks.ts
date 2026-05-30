@@ -91,6 +91,35 @@ export function useClients() {
   });
 }
 
+export function useClientMutations() {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["clients"] });
+
+  const create = useMutation({
+    mutationFn: async (input: Partial<Client> & { name: string }) => {
+      if (!supabase) return;
+      const { error } = await supabase.from("clients").insert({
+        name: input.name, title: input.title, company: input.company,
+        preferred_channel: input.preferred_channel, tone: input.tone,
+        tags: input.tags ?? [], bio: input.bio, preferences_notes: input.preferences_notes,
+      });
+      if (error) throw error;
+    },
+    onSettled: invalidate,
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      if (!supabase) return;
+      const { error } = await supabase.from("clients").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSettled: invalidate,
+  });
+
+  return { create, remove };
+}
+
 // ---------------- meetings ----------------
 export function useMeetings() {
   return useQuery<Meeting[]>({
