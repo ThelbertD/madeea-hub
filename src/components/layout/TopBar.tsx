@@ -1,5 +1,7 @@
-import { Bell, Menu, Search } from "lucide-react";
+import { Menu } from "lucide-react";
 import { todayLabel } from "@/lib/utils";
+import { GlobalSearch } from "./GlobalSearch";
+import { Notifications } from "./Notifications";
 
 export function TopBar({ onMenu }: { onMenu?: () => void }) {
   return (
@@ -9,16 +11,10 @@ export function TopBar({ onMenu }: { onMenu?: () => void }) {
       </button>
       <span className="hidden sm:block text-sm text-faint">{todayLabel()}</span>
       <div className="ml-auto flex items-center gap-2">
-        <div className="relative hidden sm:block">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
-          <input
-            className="input w-56 lg:w-72 pl-9"
-            placeholder="Search clients, tasks, emails..."
-          />
+        <div className="hidden sm:block">
+          <GlobalSearch />
         </div>
-        <button className="btn-ghost px-2" aria-label="Notifications">
-          <Bell size={18} />
-        </button>
+        <Notifications />
       </div>
     </header>
   );

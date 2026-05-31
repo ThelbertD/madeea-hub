@@ -71,7 +71,14 @@ export default function Dashboard() {
         <section className="card p-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-semibold">Upcoming Meetings</h2>
-            <button className="text-xs text-accent-soft hover:underline">Calendar</button>
+            <a
+              href="https://calendar.google.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-accent-soft hover:underline"
+            >
+              Open Calendar ↗
+            </a>
           </div>
           <div className="space-y-2">
             {meetings.map((m) => (
