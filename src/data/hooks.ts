@@ -108,6 +108,15 @@ export function useClientMutations() {
     onSettled: invalidate,
   });
 
+  const update = useMutation({
+    mutationFn: async ({ id, ...fields }: Partial<Client> & { id: string }) => {
+      if (!supabase) return;
+      const { error } = await supabase.from("clients").update(fields).eq("id", id);
+      if (error) throw error;
+    },
+    onSettled: invalidate,
+  });
+
   const remove = useMutation({
     mutationFn: async (id: string) => {
       if (!supabase) return;
@@ -117,7 +126,7 @@ export function useClientMutations() {
     onSettled: invalidate,
   });
 
-  return { create, remove };
+  return { create, update, remove };
 }
 
 // ---------------- meetings ----------------

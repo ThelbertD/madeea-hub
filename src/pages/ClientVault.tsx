@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageSquare, ChevronRight, CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { MessageSquare, ChevronRight, CheckCircle2, Plus, Trash2, Pencil } from "lucide-react";
 import type { Client } from "@/types/db";
 import { Badge, PageHeader, Modal } from "@/components/ui";
 import { initials } from "@/lib/utils";
@@ -11,21 +11,37 @@ export default function ClientVault() {
   const { data: clients = [], isLoading } = useClients();
   const { data: tasks = [] } = useTasks();
   const { data: meetings = [] } = useMeetings();
-  const { create, remove } = useClientMutations();
+  const { create, update, remove } = useClientMutations();
   const [open, setOpen] = useState<Client | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState(BLANK);
 
+  function startCreate() {
+    setForm(BLANK); setEditingId(null); setAdding(true);
+  }
+  function startEdit(c: Client) {
+    setForm({
+      name: c.name ?? "", title: c.title ?? "", company: c.company ?? "",
+      preferred_channel: c.preferred_channel || "Email", tone: c.tone ?? "",
+      tags: (c.tags ?? []).join(", "), bio: c.bio ?? "", preferences_notes: c.preferences_notes ?? "",
+    });
+    setEditingId(c.id); setOpen(null); setAdding(true);
+  }
+
   function submit() {
     if (!form.name.trim()) return;
-    create.mutate({
+    const payload = {
       name: form.name.trim(), title: form.title, company: form.company,
       preferred_channel: form.preferred_channel, tone: form.tone,
       tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
       bio: form.bio, preferences_notes: form.preferences_notes,
-    });
-    setForm(BLANK); setAdding(false);
+    };
+    if (editingId) update.mutate({ id: editingId, ...payload });
+    else create.mutate(payload);
+    setForm(BLANK); setEditingId(null); setAdding(false);
   }
+  const saving = create.isPending || update.isPending;
   const set = (k: keyof typeof BLANK) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -37,7 +53,7 @@ export default function ClientVault() {
       <PageHeader
         title="Client Vault"
         subtitle="Complete profiles and preferences for every client"
-        action={<button className="btn-primary" onClick={() => setAdding(true)}><Plus size={15} /> New Client</button>}
+        action={<button className="btn-primary" onClick={startCreate}><Plus size={15} /> New Client</button>}
       />
 
       {isLoading ? (
@@ -57,13 +73,14 @@ export default function ClientVault() {
                   <p className="text-xs text-faint">{c.title}</p>
                   <p className="text-xs text-faint">{c.company}</p>
                 </div>
-                <button
-                  className="text-faint opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
-                  onClick={() => remove.mutate(c.id)}
-                  aria-label="Delete client"
-                >
-                  <Trash2 size={14} />
-                </button>
+                <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                  <button className="text-faint hover:text-accent" onClick={() => startEdit(c)} aria-label="Edit client">
+                    <Pencil size={14} />
+                  </button>
+                  <button className="text-faint hover:text-red-400" onClick={() => remove.mutate(c.id)} aria-label="Delete client">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
               {(c.preferred_channel || c.tone) && (
                 <div className="mt-4 flex items-center gap-1.5 text-xs text-muted">
@@ -104,6 +121,9 @@ export default function ClientVault() {
                     </div>
                   )}
                 </div>
+                <button className="btn-ghost ml-auto border border-border py-1.5" onClick={() => startEdit(open)}>
+                  <Pencil size={14} /> Edit
+                </button>
               </div>
 
               <div className="mt-4 space-y-4">
@@ -145,8 +165,8 @@ export default function ClientVault() {
         })()}
       </Modal>
 
-      <Modal open={adding} onClose={() => setAdding(false)}>
-        <h2 className="mb-4 text-lg font-semibold">New Client</h2>
+      <Modal open={adding} onClose={() => { setAdding(false); setEditingId(null); }}>
+        <h2 className="mb-4 text-lg font-semibold">{editingId ? "Edit Client" : "New Client"}</h2>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div><label className="field-label">Name</label><input className="input" autoFocus value={form.name} onChange={set("name")} placeholder="Full name" /></div>
@@ -165,8 +185,8 @@ export default function ClientVault() {
           <div><label className="field-label">Tags (comma separated)</label><input className="input" value={form.tags} onChange={set("tags")} placeholder="Board Prep, Travel" /></div>
           <div><label className="field-label">Biography</label><textarea className="input min-h-[70px]" value={form.bio} onChange={set("bio")} /></div>
           <div><label className="field-label">Preferences & Notes</label><textarea className="input min-h-[70px]" value={form.preferences_notes} onChange={set("preferences_notes")} /></div>
-          <button className="btn-primary w-full" onClick={submit} disabled={!form.name.trim() || create.isPending}>
-            {create.isPending ? "Saving…" : "Add Client"}
+          <button className="btn-primary w-full" onClick={submit} disabled={!form.name.trim() || saving}>
+            {saving ? "Saving…" : editingId ? "Save changes" : "Add Client"}
           </button>
         </div>
       </Modal>
