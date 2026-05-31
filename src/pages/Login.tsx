@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 // EA accounts are provisioned by an admin (Supabase dashboard now; a Team/Invite
 // admin screen later). No public self-registration.
 export default function Login() {
-  const { signInWithPassword, signInWithGoogle } = useAuth();
+  const { signInWithPassword } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -44,14 +44,6 @@ export default function Login() {
           {error && <p className="text-xs text-red-400">{error}</p>}
           <button className="btn-primary w-full" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
         </form>
-
-        <div className="my-4 flex items-center gap-3 text-xs text-faint">
-          <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
-        </div>
-
-        <button className="btn-ghost w-full border border-border" onClick={() => signInWithGoogle()}>
-          Continue with Google
-        </button>
 
         <p className="mt-5 text-center text-xs text-faint">
           Access is invite-only. Need an account? Contact your MadeEA admin.

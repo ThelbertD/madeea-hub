@@ -13,7 +13,6 @@ interface AuthState {
   loading: boolean;
   demo: boolean;
   signInWithPassword: (email: string, password: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -49,19 +48,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async signInWithPassword(email, password) {
       if (!supabase) return;
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-    },
-    async signInWithGoogle() {
-      if (!supabase) return;
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          scopes:
-            "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly",
-          queryParams: { access_type: "offline", prompt: "consent" },
-          redirectTo: window.location.origin,
-        },
-      });
       if (error) throw error;
     },
     async signOut() {

@@ -50,6 +50,29 @@ export default function Integrations() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  async function syncSlack() {
+    if (!supabase) return;
+    setBusy("slack");
+    setNote("");
+    try {
+      const { data, error } = await supabase.functions.invoke("slack-sync");
+      if (error) {
+        let msg = error.message;
+        try {
+          const body = await (error as { context?: { json?: () => Promise<{ error?: string }> } }).context?.json?.();
+          if (body?.error) msg = body.error;
+        } catch { /* ignore */ }
+        setNote(`Slack: ${msg}`);
+      } else {
+        const d = data as { synced?: number; channels?: number };
+        setNote(`Synced ${d.synced ?? 0} Slack messages from ${d.channels ?? 0} channels.`);
+        qc.invalidateQueries({ queryKey: ["messages"] });
+      }
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function connectGoogle() {
     if (!supabase) return;
     setBusy("google");
@@ -116,19 +139,23 @@ export default function Integrations() {
           </div>
         </div>
 
-        {/* Slack — next */}
-        <div className="card flex flex-col p-5 opacity-70">
+        {/* Slack */}
+        <div className="card flex flex-col p-5">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-surface-2">
               <Slack size={20} className="text-accent-soft" />
             </div>
             <div>
               <h3 className="font-semibold">Slack</h3>
-              <span className="pill bg-zinc-500/15 text-faint">Coming next</span>
+              <span className="pill bg-zinc-500/15 text-faint">Workspace bot</span>
             </div>
           </div>
-          <p className="mt-3 flex-1 text-sm text-muted">Notifications and message triage from your Slack workspace.</p>
-          <button className="btn-ghost mt-4 border border-border" disabled>Connect Slack</button>
+          <p className="mt-3 flex-1 text-sm text-muted">
+            Pull messages from the channels your MadeEA bot is in into the Communication Center.
+          </p>
+          <button className="btn-primary mt-4" onClick={syncSlack} disabled={!isSupabaseConfigured || busy === "slack"}>
+            {busy === "slack" ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />} Sync Slack
+          </button>
         </div>
       </div>
 
