@@ -23,6 +23,7 @@ export interface Task {
   title: string;
   client_name: string;
   due_label: string;
+  due_at: string | null;
   priority: Priority;
   status: TaskStatus;
 }

@@ -12,7 +12,7 @@ const live = () => Boolean(supabase);
 // ---------------- tasks ----------------
 type TaskRow = Omit<Task, "client_name"> & { client_id: string | null; clients: { name: string } | null };
 const mapTask = (r: TaskRow): Task => ({
-  id: r.id, title: r.title, due_label: r.due_label, priority: r.priority, status: r.status,
+  id: r.id, title: r.title, due_label: r.due_label, due_at: r.due_at, priority: r.priority, status: r.status,
   client_name: r.clients?.name ?? "Unassigned",
 });
 
@@ -23,7 +23,7 @@ export function useTasks() {
       if (!supabase) return seed.TASKS;
       const { data, error } = await supabase
         .from("tasks")
-        .select("id,title,due_label,priority,status,client_id,clients(name)")
+        .select("id,title,due_label,due_at,priority,status,client_id,clients(name)")
         .order("created_at", { ascending: true });
       if (error) throw error;
       return (data as unknown as TaskRow[]).map(mapTask);
@@ -52,11 +52,20 @@ export function useTaskMutations() {
   });
 
   const create = useMutation({
-    mutationFn: async (input: { title: string; priority?: Task["priority"]; due_label?: string }) => {
+    mutationFn: async (input: { title: string; priority?: Task["priority"]; due_at?: string | null }) => {
       if (!supabase) return;
       const { error } = await supabase.from("tasks").insert({
-        title: input.title, priority: input.priority ?? "normal", due_label: input.due_label ?? "—", status: "todo",
+        title: input.title, priority: input.priority ?? "normal", due_at: input.due_at ?? null, status: "todo",
       });
+      if (error) throw error;
+    },
+    onSettled: invalidate,
+  });
+
+  const update = useMutation({
+    mutationFn: async ({ id, ...fields }: { id: string; title?: string; priority?: Task["priority"]; due_at?: string | null }) => {
+      if (!supabase) return;
+      const { error } = await supabase.from("tasks").update(fields).eq("id", id);
       if (error) throw error;
     },
     onSettled: invalidate,
@@ -71,7 +80,7 @@ export function useTaskMutations() {
     onSettled: invalidate,
   });
 
-  return { setStatus, create, remove };
+  return { setStatus, create, update, remove };
 }
 
 // ---------------- clients ----------------
