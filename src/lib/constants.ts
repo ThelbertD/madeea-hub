@@ -8,6 +8,7 @@ import {
   PenLine,
   Calculator,
   Plug,
+  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -25,6 +26,7 @@ export const NAV: NavItem[] = [
   { to: "/communication", label: "Communication Center", icon: Mail, group: "Operations" },
   { to: "/quick-actions", label: "AI Quick Actions", icon: Zap, group: "Operations" },
   { to: "/clients", label: "Client Vault", icon: Users, group: "Operations" },
+  { to: "/sops", label: "SOPs", icon: ClipboardCheck, group: "Operations" },
   { to: "/automation", label: "Automation", icon: Workflow, group: "Operations" },
   { to: "/integrations", label: "Integrations", icon: Plug, group: "Operations" },
   { to: "/studio", label: "Communication Studio", icon: PenLine, group: "AI Suite", badge: "Claude" },

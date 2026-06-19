@@ -60,6 +60,32 @@ export interface Automation {
   is_custom?: boolean;
 }
 
+export interface SopStep {
+  id: string;
+  label: string;
+  required: boolean;
+  ai_action?: string;
+}
+
+export interface Sop {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  steps: SopStep[];
+  success_criteria: string[];
+}
+
+export interface SopRun {
+  id: string;
+  sop_id: string;
+  client_id: string | null;
+  checked: string[];
+  status: "in_progress" | "completed";
+  started_at: string;
+  completed_at: string | null;
+}
+
 export interface Generation {
   id: string;
   tool: "quick_action" | "studio" | "bookkeeping";

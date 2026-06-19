@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import * as seed from "@/data/seed";
-import type { Task, TaskStatus, Client, Meeting, Message, Automation } from "@/types/db";
+import type { Task, TaskStatus, Client, Meeting, Message, Automation, Sop, SopRun } from "@/types/db";
 
 // Live Supabase data layer with a read-only seed fallback for demo mode
 // (no creds). owner_id + workspace_id auto-fill via column defaults (migration
@@ -247,6 +247,80 @@ export function useMessageMutations() {
     onSettled: () => qc.invalidateQueries({ queryKey: ["messages"] }),
   });
   return { setCategory };
+}
+
+// ---------------- SOPs (Working Playbooks) ----------------
+export function useSops() {
+  return useQuery<Sop[]>({
+    queryKey: ["sops"],
+    queryFn: async () => {
+      if (!supabase) return seed.SOPS;
+      const { data, error } = await supabase
+        .from("sops")
+        .select("id,title,description,category,steps,success_criteria")
+        .eq("is_active", true)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as Sop[];
+    },
+  });
+}
+
+export function useSopRuns() {
+  return useQuery<SopRun[]>({
+    queryKey: ["sop_runs"],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase
+        .from("sop_runs")
+        .select("id,sop_id,client_id,checked,status,started_at,completed_at")
+        .order("started_at", { ascending: false });
+      if (error) throw error;
+      return data as SopRun[];
+    },
+  });
+}
+
+export function useSopMutations() {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["sop_runs"] });
+
+  const start = useMutation({
+    mutationFn: async ({ sop_id, client_id }: { sop_id: string; client_id?: string | null }) => {
+      if (!supabase) return null;
+      const { data, error } = await supabase
+        .from("sop_runs")
+        .insert({ sop_id, client_id: client_id ?? null, checked: [], status: "in_progress" })
+        .select("id,sop_id,client_id,checked,status,started_at,completed_at")
+        .single();
+      if (error) throw error;
+      return data as SopRun;
+    },
+    onSettled: invalidate,
+  });
+
+  const setChecked = useMutation({
+    mutationFn: async ({ id, checked }: { id: string; checked: string[] }) => {
+      if (!supabase) return;
+      const { error } = await supabase.from("sop_runs").update({ checked }).eq("id", id);
+      if (error) throw error;
+    },
+    onSettled: invalidate,
+  });
+
+  const complete = useMutation({
+    mutationFn: async (id: string) => {
+      if (!supabase) return;
+      const { error } = await supabase
+        .from("sop_runs")
+        .update({ status: "completed", completed_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSettled: invalidate,
+  });
+
+  return { start, setChecked, complete };
 }
 
 export { live };

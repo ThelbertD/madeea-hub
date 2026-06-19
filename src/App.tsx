@@ -8,6 +8,7 @@ import Tasks from "@/pages/Tasks";
 import Communication from "@/pages/Communication";
 import QuickActions from "@/pages/QuickActions";
 import ClientVault from "@/pages/ClientVault";
+import Sops from "@/pages/Sops";
 import AutomationPage from "@/pages/Automation";
 import Integrations from "@/pages/Integrations";
 import CommunicationStudio from "@/pages/CommunicationStudio";
@@ -30,6 +31,7 @@ function Gate() {
         <Route path="/communication" element={<Communication />} />
         <Route path="/quick-actions" element={<QuickActions />} />
         <Route path="/clients" element={<ClientVault />} />
+        <Route path="/sops" element={<Sops />} />
         <Route path="/automation" element={<AutomationPage />} />
         <Route path="/integrations" element={<Integrations />} />
         <Route path="/studio" element={<CommunicationStudio />} />
