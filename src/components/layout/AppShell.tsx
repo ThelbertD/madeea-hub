@@ -4,6 +4,7 @@ import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { QuickActionsRail } from "./QuickActionsRail";
 import { AssistantWidget } from "@/components/AssistantWidget";
+import { FloatingSop } from "@/components/FloatingSop";
 
 export function AppShell() {
   const [mobileNav, setMobileNav] = useState(false);
@@ -36,6 +37,7 @@ export function AppShell() {
       </div>
 
       <AssistantWidget />
+      <FloatingSop />
     </div>
   );
 }

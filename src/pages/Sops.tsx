@@ -1,16 +1,18 @@
 import { useState } from "react";
-import { ClipboardCheck, CheckCircle2, Circle, Sparkles, Play, Target, ArrowLeft, MessageSquare } from "lucide-react";
+import { ClipboardCheck, CheckCircle2, Circle, Sparkles, Play, Target, ArrowLeft, MessageSquare, Pin } from "lucide-react";
 import type { Sop, SopStep } from "@/types/db";
 import { PageHeader, Modal } from "@/components/ui";
 import { useSops, useSopRuns, useSopMutations, useClients } from "@/data/hooks";
 import { generate } from "@/lib/ai";
 import { OutputViewer } from "@/components/OutputViewer";
+import { useSopWidget } from "@/store/sopWidget";
 
 export default function Sops() {
   const { data: sops = [], isLoading } = useSops();
   const { data: runs = [] } = useSopRuns();
   const { data: clients = [] } = useClients();
   const { start, setChecked, complete } = useSopMutations();
+  const pinWidget = useSopWidget((s) => s.pin);
 
   const [openSop, setOpenSop] = useState<Sop | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
@@ -57,6 +59,11 @@ export default function Sops() {
   async function finish() {
     if (runId && runId !== "local") await complete.mutateAsync(runId);
     setDone(true);
+  }
+  function pinToScreen() {
+    if (!openSop || !runId) return;
+    pinWidget(openSop, runId, checked, client?.name ?? null);
+    close();
   }
   async function runAi(step: SopStep) {
     setAiStep(step); setAiOutput(""); setAiBusy(true);
@@ -209,9 +216,14 @@ export default function Sops() {
                       <Play size={15} /> {start.isPending ? "Starting…" : "Start workflow"}
                     </button>
                   ) : (
-                    <button className="btn-primary w-full" onClick={finish} disabled={!allRequiredDone || complete.isPending}>
-                      <CheckCircle2 size={15} /> {allRequiredDone ? "Mark Complete" : "Complete all required steps to finish"}
-                    </button>
+                    <div className="flex gap-2">
+                      <button className="btn-ghost border border-border" onClick={pinToScreen} title="Keep this checklist on screen while you work">
+                        <Pin size={14} /> Pin to screen
+                      </button>
+                      <button className="btn-primary flex-1" onClick={finish} disabled={!allRequiredDone || complete.isPending}>
+                        <CheckCircle2 size={15} /> {allRequiredDone ? "Mark Complete" : "Complete required steps to finish"}
+                      </button>
+                    </div>
                   )}
                 </div>
               </>
