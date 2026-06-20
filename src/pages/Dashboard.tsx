@@ -1,6 +1,7 @@
 import { CheckSquare, Calendar, Mail, Workflow } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge, PageHeader } from "@/components/ui";
+import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useTasks, useMeetings, useClients, useMessages, useAutomations } from "@/data/hooks";
 
@@ -100,9 +101,12 @@ export default function Dashboard() {
         <h2 className="mb-3 font-semibold">Client Snapshot</h2>
         <div className="grid gap-3 sm:grid-cols-3">
           {clients.map((c) => (
-            <button key={c.id} className="rounded-lg bg-surface-2 p-4 text-left hover:bg-surface-2/70" onClick={() => nav("/clients")}>
-              <p className="text-sm font-medium">{c.name}</p>
-              <p className="text-xs text-faint">{c.title}, {c.company}</p>
+            <button key={c.id} className="flex items-center gap-3 rounded-lg bg-surface-2 p-4 text-left hover:bg-surface-2/70" onClick={() => nav("/clients")}>
+              <Avatar name={c.name} url={c.avatar_url} className="h-9 w-9 shrink-0 text-xs" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{c.name}</p>
+                <p className="truncate text-xs text-faint">{c.title}, {c.company}</p>
+              </div>
             </button>
           ))}
           {clients.length === 0 && <p className="py-4 text-center text-xs text-faint">No clients</p>}

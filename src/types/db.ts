@@ -14,8 +14,17 @@ export interface Client {
   tags: string[];
   bio: string;
   preferences_notes: string;
+  avatar_url: string | null;
   active_tasks: { title: string; status: string }[];
   schedule: { when: string; what: string }[];
+}
+
+export interface AutomationRun {
+  id: string;
+  automation_id: string;
+  ran_at: string;
+  summary: string | null;
+  output: { text?: string } | null;
 }
 
 export interface Task {

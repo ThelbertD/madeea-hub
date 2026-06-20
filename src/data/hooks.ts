@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import * as seed from "@/data/seed";
-import type { Task, TaskStatus, Client, Meeting, Message, Automation, Sop, SopRun } from "@/types/db";
+import type { Task, TaskStatus, Client, Meeting, Message, Automation, Sop, SopRun, AutomationRun } from "@/types/db";
 
 // Live Supabase data layer with a read-only seed fallback for demo mode
 // (no creds). owner_id + workspace_id auto-fill via column defaults (migration
@@ -111,6 +111,7 @@ export function useClientMutations() {
         name: input.name, title: input.title, company: input.company,
         preferred_channel: input.preferred_channel, tone: input.tone,
         tags: input.tags ?? [], bio: input.bio, preferences_notes: input.preferences_notes,
+        avatar_url: input.avatar_url ?? null,
       });
       if (error) throw error;
     },
@@ -226,13 +227,29 @@ export function useAutomationMutations() {
   const create = useMutation({
     mutationFn: async (input: { name: string; description: string; trigger: string; action: string }) => {
       if (!supabase) return;
-      const { error } = await supabase.from("automations").insert({ ...input, status: "active", is_custom: true });
+      const { error } = await supabase.from("automations").insert({ ...input, status: "active", is_custom: true, automation_key: "custom" });
       if (error) throw error;
     },
     onSettled: invalidate,
   });
 
   return { toggle, runNow, create };
+}
+
+export function useAutomationRuns() {
+  return useQuery<AutomationRun[]>({
+    queryKey: ["automation_runs"],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase
+        .from("automation_runs")
+        .select("id,automation_id,ran_at,summary,output")
+        .order("ran_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data as AutomationRun[];
+    },
+  });
 }
 
 // ---------------- messages ----------------

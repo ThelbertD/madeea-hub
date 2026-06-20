@@ -1,15 +1,23 @@
 import { useState } from "react";
-import { Play, Clock, Workflow, Save } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Play, Clock, Workflow, Save, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { AUTOMATION_TRIGGERS as T, AUTOMATION_ACTIONS as A } from "@/lib/constants";
 import { Badge, PageHeader } from "@/components/ui";
-import { useAutomations, useAutomationMutations } from "@/data/hooks";
+import { OutputViewer } from "@/components/OutputViewer";
+import { useAutomations, useAutomationMutations, useAutomationRuns } from "@/data/hooks";
+import { supabase } from "@/lib/supabase";
 
 export default function AutomationPage() {
+  const qc = useQueryClient();
   const { data: autos = [], isLoading } = useAutomations();
-  const { toggle, runNow, create } = useAutomationMutations();
+  const { data: runs = [] } = useAutomationRuns();
+  const { toggle, create } = useAutomationMutations();
   const [trigger, setTrigger] = useState(T[0]);
   const [action, setAction] = useState(A[0]);
   const [name, setName] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [note, setNote] = useState("");
 
   function save() {
     if (!name.trim()) return;
@@ -17,9 +25,33 @@ export default function AutomationPage() {
     setName("");
   }
 
+  async function runNow(id: string) {
+    if (!supabase) { setNote("Connect Supabase to run automations."); return; }
+    setBusyId(id);
+    setNote("");
+    try {
+      const { data, error } = await supabase.functions.invoke("run-automation", { body: { automation_id: id } });
+      if (error) {
+        let msg = error.message;
+        try { const b = await (error as { context?: { json?: () => Promise<{ error?: string }> } }).context?.json?.(); if (b?.error) msg = b.error; } catch { /* ignore */ }
+        setNote(`Run failed: ${msg}`);
+      } else {
+        setNote((data as { summary?: string })?.summary ?? "Run complete.");
+        setExpanded(id);
+        qc.invalidateQueries({ queryKey: ["automations"] });
+        qc.invalidateQueries({ queryKey: ["automation_runs"] });
+        qc.invalidateQueries({ queryKey: ["messages"] }); // inbox triage may re-categorise
+      }
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <div>
       <PageHeader title="Automation Dashboard" subtitle="MadeEA's core automation suite — built for elite executive operations" />
+
+      {note && <div className="mb-4 rounded-lg border border-border bg-surface-2 px-4 py-2 text-sm text-muted">{note}</div>}
 
       <h2 className="mb-3 font-semibold">Automations</h2>
       {isLoading ? (
@@ -28,35 +60,50 @@ export default function AutomationPage() {
         <div className="card p-8 text-center text-sm text-faint">No automations yet. Build one below.</div>
       ) : (
         <div className="space-y-3">
-          {autos.map((a) => (
-            <div key={a.id} className="card p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex gap-3">
-                  <Workflow size={18} className="mt-0.5 shrink-0 text-accent-soft" />
-                  <div>
-                    <h3 className="font-semibold">{a.name}</h3>
-                    <p className="mt-1 text-sm text-muted">{a.description}</p>
+          {autos.map((a) => {
+            const latest = runs.find((r) => r.automation_id === a.id);
+            const isOpen = expanded === a.id;
+            return (
+              <div key={a.id} className="card p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex gap-3">
+                    <Workflow size={18} className="mt-0.5 shrink-0 text-accent-soft" />
+                    <div>
+                      <h3 className="font-semibold">{a.name}</h3>
+                      <p className="mt-1 text-sm text-muted">{a.description}</p>
+                    </div>
                   </div>
+                  <button
+                    role="switch"
+                    aria-checked={a.status === "active"}
+                    onClick={() => toggle.mutate({ id: a.id, status: a.status === "active" ? "paused" : "active" })}
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${a.status === "active" ? "bg-accent" : "bg-surface-2"}`}
+                  >
+                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${a.status === "active" ? "translate-x-5" : "translate-x-0.5"}`} />
+                  </button>
                 </div>
-                <button
-                  role="switch"
-                  aria-checked={a.status === "active"}
-                  onClick={() => toggle.mutate({ id: a.id, status: a.status === "active" ? "paused" : "active" })}
-                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${a.status === "active" ? "bg-accent" : "bg-surface-2"}`}
-                >
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${a.status === "active" ? "translate-x-5" : "translate-x-0.5"}`} />
-                </button>
+                <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-faint">
+                  <Badge tone={a.status}>{a.status === "active" ? "Active" : "Paused"}</Badge>
+                  <span className="flex items-center gap-1"><Clock size={12} /> Last run: {a.last_run}</span>
+                  <span>{a.total_runs} total runs</span>
+                  {latest && (
+                    <button className="flex items-center gap-1 text-accent-soft hover:underline" onClick={() => setExpanded(isOpen ? null : a.id)}>
+                      {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />} {isOpen ? "Hide" : "View"} last result
+                    </button>
+                  )}
+                  <button className="btn-ghost ml-auto border border-border py-1.5" onClick={() => runNow(a.id)} disabled={busyId === a.id}>
+                    {busyId === a.id ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />} Run Now
+                  </button>
+                </div>
+                {isOpen && latest?.output?.text && (
+                  <div className="mt-4 border-t border-border pt-4">
+                    {latest.summary && <p className="mb-2 text-xs text-faint">{latest.summary}</p>}
+                    <OutputViewer output={latest.output.text} title={a.name} />
+                  </div>
+                )}
               </div>
-              <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-faint">
-                <Badge tone={a.status}>{a.status === "active" ? "Active" : "Paused"}</Badge>
-                <span className="flex items-center gap-1"><Clock size={12} /> Last run: {a.last_run}</span>
-                <span>{a.total_runs} total runs</span>
-                <button className="btn-ghost ml-auto border border-border py-1.5" onClick={() => runNow.mutate({ id: a.id, total_runs: a.total_runs })}>
-                  <Play size={13} /> Run Now
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -65,15 +112,11 @@ export default function AutomationPage() {
         <div className="grid gap-4 md:grid-cols-3">
           <div>
             <label className="field-label">Trigger</label>
-            <select className="input" value={trigger} onChange={(e) => setTrigger(e.target.value)}>
-              {T.map((t) => <option key={t}>{t}</option>)}
-            </select>
+            <select className="input" value={trigger} onChange={(e) => setTrigger(e.target.value)}>{T.map((t) => <option key={t}>{t}</option>)}</select>
           </div>
           <div>
             <label className="field-label">Action</label>
-            <select className="input" value={action} onChange={(e) => setAction(e.target.value)}>
-              {A.map((a) => <option key={a}>{a}</option>)}
-            </select>
+            <select className="input" value={action} onChange={(e) => setAction(e.target.value)}>{A.map((a) => <option key={a}>{a}</option>)}</select>
           </div>
           <div>
             <label className="field-label">Automation Name</label>

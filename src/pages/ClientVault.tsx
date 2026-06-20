@@ -2,10 +2,11 @@ import { useState } from "react";
 import { MessageSquare, ChevronRight, CheckCircle2, Plus, Trash2, Pencil } from "lucide-react";
 import type { Client } from "@/types/db";
 import { Badge, PageHeader, Modal } from "@/components/ui";
-import { initials } from "@/lib/utils";
+import { Avatar } from "@/components/Avatar";
 import { useClients, useTasks, useMeetings, useClientMutations } from "@/data/hooks";
+import { supabase } from "@/lib/supabase";
 
-const BLANK = { name: "", title: "", company: "", preferred_channel: "Email", tone: "Formal", tags: "", bio: "", preferences_notes: "" };
+const BLANK = { name: "", title: "", company: "", preferred_channel: "Email", tone: "Formal", tags: "", bio: "", preferences_notes: "", image: "" };
 
 export default function ClientVault() {
   const { data: clients = [], isLoading } = useClients();
@@ -16,17 +17,40 @@ export default function ClientVault() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState(BLANK);
+  const [uploading, setUploading] = useState(false);
+  const [uploadErr, setUploadErr] = useState("");
 
   function startCreate() {
-    setForm(BLANK); setEditingId(null); setAdding(true);
+    setForm(BLANK); setEditingId(null); setUploadErr(""); setAdding(true);
   }
   function startEdit(c: Client) {
     setForm({
       name: c.name ?? "", title: c.title ?? "", company: c.company ?? "",
       preferred_channel: c.preferred_channel || "Email", tone: c.tone ?? "",
       tags: (c.tags ?? []).join(", "), bio: c.bio ?? "", preferences_notes: c.preferences_notes ?? "",
+      image: c.avatar_url ?? "",
     });
-    setEditingId(c.id); setOpen(null); setAdding(true);
+    setEditingId(c.id); setOpen(null); setUploadErr(""); setAdding(true);
+  }
+
+  async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!supabase) { setUploadErr("Upload needs Supabase — paste an image URL instead."); return; }
+    setUploading(true); setUploadErr("");
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error } = await supabase.storage.from("client-avatars").upload(path, file, { upsert: true, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from("client-avatars").getPublicUrl(path);
+      setForm((f) => ({ ...f, image: data.publicUrl }));
+    } catch {
+      setUploadErr("Upload failed — paste an image URL instead.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   function submit() {
@@ -36,6 +60,7 @@ export default function ClientVault() {
       preferred_channel: form.preferred_channel, tone: form.tone,
       tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
       bio: form.bio, preferences_notes: form.preferences_notes,
+      avatar_url: form.image.trim() || null,
     };
     if (editingId) update.mutate({ id: editingId, ...payload });
     else create.mutate(payload);
@@ -65,9 +90,7 @@ export default function ClientVault() {
           {clients.map((c) => (
             <div key={c.id} className="card group flex flex-col p-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-accent/20 text-sm font-semibold text-accent-soft">
-                  {initials(c.name)}
-                </div>
+                <Avatar name={c.name} url={c.avatar_url} className="h-11 w-11 text-sm" />
                 <div className="flex-1">
                   <h3 className="font-semibold">{c.name}</h3>
                   <p className="text-xs text-faint">{c.title}</p>
@@ -108,9 +131,7 @@ export default function ClientVault() {
           return (
             <div>
               <div className="flex items-center gap-4 border-b border-border pb-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/20 text-lg font-semibold text-accent-soft">
-                  {initials(open.name)}
-                </div>
+                <Avatar name={open.name} url={open.avatar_url} className="h-14 w-14 text-lg" />
                 <div>
                   <h2 className="text-lg font-semibold">{open.name}</h2>
                   <p className="text-sm text-faint">{open.title}, {open.company}</p>
@@ -168,6 +189,21 @@ export default function ClientVault() {
       <Modal open={adding} onClose={() => { setAdding(false); setEditingId(null); }}>
         <h2 className="mb-4 text-lg font-semibold">{editingId ? "Edit Client" : "New Client"}</h2>
         <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Avatar name={form.name || "?"} url={form.image} className="h-14 w-14 text-base" />
+            <div className="flex-1">
+              <label className="field-label">Image (optional)</label>
+              <input className="input" value={form.image} onChange={set("image")} placeholder="Paste image URL…" />
+              <div className="mt-1.5 flex items-center gap-3 text-xs">
+                <label className="cursor-pointer text-accent-soft hover:underline">
+                  <input type="file" accept="image/*" className="hidden" onChange={onUpload} />
+                  {uploading ? "Uploading…" : "Upload image"}
+                </label>
+                {form.image && <button className="text-faint hover:text-red-400" onClick={() => setForm((f) => ({ ...f, image: "" }))}>Remove</button>}
+                {uploadErr && <span className="text-red-400">{uploadErr}</span>}
+              </div>
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="field-label">Name</label><input className="input" autoFocus value={form.name} onChange={set("name")} placeholder="Full name" /></div>
             <div><label className="field-label">Title</label><input className="input" value={form.title} onChange={set("title")} placeholder="e.g. CEO" /></div>
