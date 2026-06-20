@@ -210,6 +210,13 @@ export function useAutomationMutations() {
       const { error } = await supabase.from("automations").update({ status }).eq("id", id);
       if (error) throw error;
     },
+    onMutate: async ({ id, status }) => {
+      await qc.cancelQueries({ queryKey: ["automations"] });
+      const prev = qc.getQueryData<Automation[]>(["automations"]);
+      qc.setQueryData<Automation[]>(["automations"], (old) => (old ?? []).map((a) => (a.id === id ? { ...a, status } : a)));
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => ctx?.prev && qc.setQueryData(["automations"], ctx.prev),
     onSettled: invalidate,
   });
 
@@ -234,7 +241,16 @@ export function useAutomationMutations() {
     onSettled: invalidate,
   });
 
-  return { toggle, runNow, create };
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      if (!supabase) return;
+      const { error } = await supabase.from("automations").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSettled: invalidate,
+  });
+
+  return { toggle, runNow, create, remove };
 }
 
 export function useAutomationRuns() {

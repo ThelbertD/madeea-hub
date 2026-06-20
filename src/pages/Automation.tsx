@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Play, Clock, Workflow, Save, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { Play, Clock, Workflow, Save, Loader2, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { AUTOMATION_TRIGGERS as T, AUTOMATION_ACTIONS as A } from "@/lib/constants";
 import { Badge, PageHeader } from "@/components/ui";
 import { OutputViewer } from "@/components/OutputViewer";
@@ -11,7 +11,7 @@ export default function AutomationPage() {
   const qc = useQueryClient();
   const { data: autos = [], isLoading } = useAutomations();
   const { data: runs = [] } = useAutomationRuns();
-  const { toggle, create } = useAutomationMutations();
+  const { toggle, create, remove } = useAutomationMutations();
   const [trigger, setTrigger] = useState(T[0]);
   const [action, setAction] = useState(A[0]);
   const [name, setName] = useState("");
@@ -64,7 +64,7 @@ export default function AutomationPage() {
             const latest = runs.find((r) => r.automation_id === a.id);
             const isOpen = expanded === a.id;
             return (
-              <div key={a.id} className="card p-5">
+              <div key={a.id} className="card group p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex gap-3">
                     <Workflow size={18} className="mt-0.5 shrink-0 text-accent-soft" />
@@ -73,14 +73,23 @@ export default function AutomationPage() {
                       <p className="mt-1 text-sm text-muted">{a.description}</p>
                     </div>
                   </div>
-                  <button
-                    role="switch"
-                    aria-checked={a.status === "active"}
-                    onClick={() => toggle.mutate({ id: a.id, status: a.status === "active" ? "paused" : "active" })}
-                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${a.status === "active" ? "bg-accent" : "bg-surface-2"}`}
-                  >
-                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${a.status === "active" ? "translate-x-5" : "translate-x-0.5"}`} />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <button
+                      className="text-faint opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
+                      onClick={() => { if (window.confirm(`Delete "${a.name}"? This can't be undone.`)) remove.mutate(a.id); }}
+                      aria-label="Delete automation"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                    <button
+                      role="switch"
+                      aria-checked={a.status === "active"}
+                      onClick={() => toggle.mutate({ id: a.id, status: a.status === "active" ? "paused" : "active" })}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${a.status === "active" ? "bg-accent" : "bg-surface-2"}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${a.status === "active" ? "translate-x-6" : "translate-x-1"}`} />
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-faint">
                   <Badge tone={a.status}>{a.status === "active" ? "Active" : "Paused"}</Badge>

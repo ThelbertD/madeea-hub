@@ -5,6 +5,7 @@ import { TopBar } from "./TopBar";
 import { QuickActionsRail } from "./QuickActionsRail";
 import { AssistantWidget } from "@/components/AssistantWidget";
 import { FloatingSop } from "@/components/FloatingSop";
+import { GuideCard } from "@/components/GuideCard";
 
 export function AppShell() {
   const [mobileNav, setMobileNav] = useState(false);
@@ -30,6 +31,7 @@ export function AppShell() {
         <TopBar onMenu={() => setMobileNav(true)} />
         <div className="flex flex-1 overflow-hidden">
           <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+            <GuideCard />
             <Outlet />
           </main>
           <QuickActionsRail />
