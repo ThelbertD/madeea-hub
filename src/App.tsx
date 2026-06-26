@@ -13,6 +13,7 @@ import AutomationPage from "@/pages/Automation";
 import Integrations from "@/pages/Integrations";
 import CommunicationStudio from "@/pages/CommunicationStudio";
 import BookkeepingAI from "@/pages/BookkeepingAI";
+import Settings from "@/pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ function Gate() {
         <Route path="/integrations" element={<Integrations />} />
         <Route path="/studio" element={<CommunicationStudio />} />
         <Route path="/bookkeeping" element={<BookkeepingAI />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

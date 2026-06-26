@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { Settings as SettingsIcon } from "lucide-react";
 import { NAV } from "@/lib/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -40,15 +41,20 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       <div className="border-t border-border p-3">
-        <div className="flex items-center gap-3 rounded-lg px-2 py-2">
+        <NavLink
+          to="/settings"
+          onClick={onNavigate}
+          className={({ isActive }) => cn("group flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-surface-2", isActive && "bg-surface-2")}
+        >
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/20 text-sm font-semibold text-accent-soft">
             {user?.initials ?? "SM"}
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{user?.name ?? "—"}</p>
             <p className="truncate text-xs text-faint">Elite EA</p>
           </div>
-        </div>
+          <SettingsIcon size={15} className="text-faint transition-colors group-hover:text-zinc-100" />
+        </NavLink>
       </div>
     </aside>
   );
