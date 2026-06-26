@@ -24,11 +24,13 @@ The Command Center is **up, running, and being used** — a secure, branded web 
 - **Smarter notifications** — overdue/upcoming deadlines plus your own **reminders and follow-ups**.
 - **Works on mobile** — checked across phones; nothing breaks on a small screen, and the walkthrough now works cleanly on mobile too.
 - **Settings** — replay the tour and sign out.
-- **Admin panel** — administrators get a dedicated area to **see every team account**, their role and activity, **invite teammates**, and promote/remove members. Admins use the app normally and **switch to the Admin panel** any time; regular EAs never see it. Access is **enforced server-side**, so the controls can't be bypassed.
+- **Admin panel** — administrators get a dedicated area to **see every team account**, their role and activity, and promote/remove members. Admins use the app normally and **switch to the Admin panel** any time; regular EAs never see it. Access is **enforced server-side**, so the controls can't be bypassed.
+- **Email invitations are live** — an admin can **invite a teammate by email** straight from the Admin panel. They get an invite email, click it, and they're in — automatically added to the team as an EA.
+- **One shared team workspace** — the whole team now works in a **single shared space**, so each EA can see the team's tasks, clients, messages and meetings (no more siloed accounts).
 - **What's new** — a built-in **version history** page (in Settings) so the team can follow every update.
 
 ## How sign-in works
-The app is **invite-only** (an internal tool for the team, not a public site). New team members are added by an administrator — there's no public sign-up.
+The app is **invite-only** (an internal tool for the team, not a public site). There's no public sign-up — an administrator **invites new team members by email** from the Admin panel, and they join the shared team workspace.
 
 ## What's next (optional)
 - A simple **Notes** area (if useful).

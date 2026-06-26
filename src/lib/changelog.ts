@@ -13,9 +13,10 @@ export const CHANGELOG: Release[] = [
   {
     version: "1.6.0",
     date: "2026-06-26",
-    title: "Shared team workspace",
+    title: "Shared team workspace & email invites",
     changes: [
       "Everyone now works in one shared workspace — each EA can see the whole team's tasks, clients, messages and meetings.",
+      "Email invitations are live — admins invite a teammate by email from the Admin panel and they're added to the team automatically.",
       "Admins keep the Admin panel for managing accounts and roles.",
     ],
   },
