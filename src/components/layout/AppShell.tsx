@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
@@ -8,9 +7,10 @@ import { FloatingSop } from "@/components/FloatingSop";
 import { GuideCard } from "@/components/GuideCard";
 import { CommandPalette } from "@/components/CommandPalette";
 import { GuidedTour } from "@/components/GuidedTour";
+import { useUI } from "@/store/ui";
 
 export function AppShell() {
-  const [mobileNav, setMobileNav] = useState(false);
+  const { navOpen, setNavOpen } = useUI();
 
   return (
     <div className="flex h-screen overflow-hidden bg-bg">
@@ -20,17 +20,17 @@ export function AppShell() {
       </div>
 
       {/* Mobile sidebar drawer */}
-      {mobileNav && (
+      {navOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setMobileNav(false)} />
+          <div className="absolute inset-0 bg-black/60" onClick={() => setNavOpen(false)} />
           <div className="absolute left-0 top-0 h-full">
-            <Sidebar onNavigate={() => setMobileNav(false)} />
+            <Sidebar onNavigate={() => setNavOpen(false)} />
           </div>
         </div>
       )}
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar onMenu={() => setMobileNav(true)} />
+        <TopBar onMenu={() => setNavOpen(true)} />
         <div className="flex flex-1 overflow-hidden">
           <main className="flex-1 overflow-y-auto p-4 lg:p-6">
             <GuideCard />

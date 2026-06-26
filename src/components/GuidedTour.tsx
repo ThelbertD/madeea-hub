@@ -1,23 +1,36 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { useTour } from "@/store/tour";
 import { useAuth } from "@/hooks/useAuth";
+import { useUI } from "@/store/ui";
 
-interface Step { selector?: string; title: string; body: string }
+interface Step { selector?: string; title: string; body: string; needsNav?: boolean }
 
 const STEPS: Step[] = [
   { title: "Welcome to MadeEA", body: "Your one-stop command center for executive-assistant work. Here's a 30-second tour — skip any time." },
-  { selector: '[data-tour="nav"]', title: "Operations", body: "Run your day from here: Dashboard, Tasks, Clients, SOPs, Communication and Automations." },
-  { selector: '[data-tour="ai-suite"]', title: "AI Suite", body: "Communication Studio and Bookkeeping AI draft emails, reports and invoices — with guided inputs and PDF export." },
+  { selector: '[data-tour="nav"]', needsNav: true, title: "Operations", body: "Run your day from here: Dashboard, Tasks, Clients, SOPs, Communication and Automations." },
+  { selector: '[data-tour="ai-suite"]', needsNav: true, title: "AI Suite", body: "Communication Studio and Bookkeeping AI draft emails, reports and invoices — with guided inputs and PDF export." },
   { selector: '[data-tour="search"]', title: "Search anything — ⌘K", body: "Press Ctrl/⌘-K to instantly jump to any page, client, task or SOP, and pin your favorites." },
   { selector: '[data-tour="assistant"]', title: "AI Assistant", body: "Ask anything — it knows your tasks, clients and the team's SOPs." },
-  { title: "You're all set", body: "Each page has a collapsible 'How this works' guide, and you can replay this tour any time from the ? button." },
+  { title: "You're all set", body: "Each page has a collapsible 'How this works' guide, and you can replay this tour any time from Settings." },
 ];
 
 const DONE_KEY = "madeea-tour-done";
+const BW = 320; // bubble width
+const BH = 210; // approx bubble height for placement
+const PAD = 14;
+
+// Find the first *visible* element matching a selector. On mobile there can be
+// two instances (hidden desktop sidebar + visible drawer) — we want the shown one.
+function findVisible(selector?: string): HTMLElement | null {
+  if (!selector) return null;
+  const els = Array.from(document.querySelectorAll(selector)) as HTMLElement[];
+  return els.find((e) => { const r = e.getBoundingClientRect(); return r.width > 2 && r.height > 2; }) ?? null;
+}
 
 export function GuidedTour() {
   const { open, start, stop } = useTour();
   const { user } = useAuth();
+  const { setNavOpen } = useUI();
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
 
@@ -30,35 +43,51 @@ export function GuidedTour() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // Open/close the sidebar drawer so the spotlighted nav is actually visible
+  // (no-op on desktop, where the drawer is lg:hidden and the sidebar is always shown).
+  useEffect(() => {
+    if (!open) return;
+    setNavOpen(!!STEPS[step]?.needsNav);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, step]);
+
   const measure = () => {
-    const s = STEPS[step];
-    const el = s?.selector ? (document.querySelector(s.selector) as HTMLElement | null) : null;
+    const el = findVisible(STEPS[step]?.selector);
     const r = el ? el.getBoundingClientRect() : null;
-    // If the target is hidden/zero-size (e.g. the sidebar or search on mobile),
-    // fall back to a centered bubble instead of a broken spotlight at 0,0.
     setRect(r && r.width > 0 && r.height > 0 ? r : null);
   };
+
   useLayoutEffect(() => { if (open) measure(); /* eslint-disable-next-line */ }, [open, step]);
   useEffect(() => {
     if (!open) return;
+    // re-measure after the drawer has mounted/animated, plus on resize/scroll
+    const t = setTimeout(measure, 140);
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    return () => { clearTimeout(t); window.removeEventListener("resize", measure); window.removeEventListener("scroll", measure, true); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, step]);
 
   if (!open) return null;
   const s = STEPS[step];
-  const finish = () => { localStorage.setItem(DONE_KEY, "1"); stop(); setStep(0); };
+  const finish = () => { localStorage.setItem(DONE_KEY, "1"); setNavOpen(false); stop(); setStep(0); };
   const next = () => (step < STEPS.length - 1 ? setStep(step + 1) : finish());
   const back = () => setStep(Math.max(0, step - 1));
 
-  const bubble: React.CSSProperties = rect
-    ? {
-        position: "absolute",
-        top: Math.min(rect.bottom + 12, window.innerHeight - 210),
-        left: Math.min(Math.max(rect.left, 16), window.innerWidth - 340),
-      }
-    : { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
+  // Place the bubble on a side of the target that has room — never covering it.
+  const bubble: React.CSSProperties = (() => {
+    if (!rect) return { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const clampX = (x: number) => Math.min(Math.max(x, PAD), vw - BW - PAD);
+    const clampY = (y: number) => Math.min(Math.max(y, PAD), vh - BH - PAD);
+    let top: number, left: number;
+    if (vh - rect.bottom >= BH + PAD) { top = rect.bottom + PAD; left = clampX(rect.left); }        // below
+    else if (rect.top >= BH + PAD) { top = rect.top - PAD - BH; left = clampX(rect.left); }          // above
+    else if (vw - rect.right >= BW + PAD) { left = rect.right + PAD; top = clampY(rect.top); }        // right
+    else if (rect.left >= BW + PAD) { left = rect.left - PAD - BW; top = clampY(rect.top); }          // left
+    else { top = clampY(vh - BH - PAD); left = clampX(vw - BW - PAD); }                                // corner fallback
+    return { position: "absolute", top, left };
+  })();
 
   return (
     <div className="fixed inset-0 z-[70]">
