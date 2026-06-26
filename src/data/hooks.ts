@@ -13,8 +13,21 @@ const live = () => Boolean(supabase);
 type TaskRow = Omit<Task, "client_name"> & { client_id: string | null; clients: { name: string } | null };
 const mapTask = (r: TaskRow): Task => ({
   id: r.id, title: r.title, due_label: r.due_label, due_at: r.due_at, priority: r.priority, status: r.status,
+  subtasks: Array.isArray(r.subtasks) ? r.subtasks : [],
+  recurrence: r.recurrence ?? "none",
+  depends_on: r.depends_on ?? null,
   client_name: r.clients?.name ?? "Unassigned",
 });
+
+function nextDue(due_at: string | null, rec: string): string | null {
+  if (!due_at) return null;
+  const d = new Date(due_at);
+  if (rec === "daily") d.setUTCDate(d.getUTCDate() + 1);
+  else if (rec === "weekly") d.setUTCDate(d.getUTCDate() + 7);
+  else if (rec === "monthly") d.setUTCMonth(d.getUTCMonth() + 1);
+  else return due_at;
+  return d.toISOString();
+}
 
 export function useTasks() {
   return useQuery<Task[]>({
@@ -23,7 +36,7 @@ export function useTasks() {
       if (!supabase) return seed.TASKS;
       const { data, error } = await supabase
         .from("tasks")
-        .select("id,title,due_label,due_at,priority,status,client_id,clients(name)")
+        .select("id,title,due_label,due_at,priority,status,subtasks,recurrence,depends_on,client_id,clients(name)")
         .order("created_at", { ascending: true });
       if (error) throw error;
       return (data as unknown as TaskRow[]).map(mapTask);
@@ -40,6 +53,18 @@ export function useTaskMutations() {
       if (!supabase) return;
       const { error } = await supabase.from("tasks").update({ status }).eq("id", id);
       if (error) throw error;
+      // Recurring tasks spawn their next instance on completion.
+      if (status === "done") {
+        const { data: t } = await supabase
+          .from("tasks").select("title,priority,due_at,client_id,recurrence,subtasks").eq("id", id).single();
+        if (t && t.recurrence && t.recurrence !== "none") {
+          const subtasks = Array.isArray(t.subtasks) ? t.subtasks.map((s: { id: string; label: string }) => ({ ...s, done: false })) : [];
+          await supabase.from("tasks").insert({
+            title: t.title, priority: t.priority, due_at: nextDue(t.due_at, t.recurrence),
+            status: "todo", client_id: t.client_id, recurrence: t.recurrence, subtasks,
+          });
+        }
+      }
     },
     onMutate: async ({ id, status }) => {
       await qc.cancelQueries({ queryKey: ["tasks"] });
@@ -51,11 +76,16 @@ export function useTaskMutations() {
     onSettled: invalidate,
   });
 
+  type TaskInput = {
+    title: string; priority?: Task["priority"]; due_at?: string | null;
+    subtasks?: Task["subtasks"]; recurrence?: Task["recurrence"]; depends_on?: string | null;
+  };
   const create = useMutation({
-    mutationFn: async (input: { title: string; priority?: Task["priority"]; due_at?: string | null }) => {
+    mutationFn: async (input: TaskInput) => {
       if (!supabase) return;
       const { error } = await supabase.from("tasks").insert({
         title: input.title, priority: input.priority ?? "normal", due_at: input.due_at ?? null, status: "todo",
+        subtasks: input.subtasks ?? [], recurrence: input.recurrence ?? "none", depends_on: input.depends_on ?? null,
       });
       if (error) throw error;
     },
@@ -63,7 +93,7 @@ export function useTaskMutations() {
   });
 
   const update = useMutation({
-    mutationFn: async ({ id, ...fields }: { id: string; title?: string; priority?: Task["priority"]; due_at?: string | null }) => {
+    mutationFn: async ({ id, ...fields }: Partial<TaskInput> & { id: string }) => {
       if (!supabase) return;
       const { error } = await supabase.from("tasks").update(fields).eq("id", id);
       if (error) throw error;

@@ -27,6 +27,14 @@ export interface AutomationRun {
   output: { text?: string } | null;
 }
 
+export interface Subtask {
+  id: string;
+  label: string;
+  done: boolean;
+}
+
+export type Recurrence = "none" | "daily" | "weekly" | "monthly";
+
 export interface Task {
   id: string;
   title: string;
@@ -35,6 +43,9 @@ export interface Task {
   due_at: string | null;
   priority: Priority;
   status: TaskStatus;
+  subtasks: Subtask[];
+  recurrence: Recurrence;
+  depends_on: string | null;
 }
 
 export interface Message {
