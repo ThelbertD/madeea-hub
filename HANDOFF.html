@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MadeEA Command Center — Developer Handoff</title>
+<style>
+  :root { --navy:#09141f; --ink:#1c2733; --muted:#5b6b7a; --line:#e4e9ee; --orange:#fd5812; --soft:#fff3ee; --ok:#0f9d58; --warn:#b26a00; --warnbg:#fff7e6; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+         color: var(--ink); background:#f5f7f9; line-height:1.6; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; }
+  header { background: var(--navy); color:#fff; border-radius:14px; padding:28px 30px; margin-bottom:26px; }
+  header h1 { margin:0 0 6px; font-size:26px; }
+  header p { margin:0; color:#9fb3c4; font-size:14px; }
+  header .badge { display:inline-block; background:var(--orange); color:#fff; font-size:12px; font-weight:600;
+                  padding:3px 10px; border-radius:999px; margin-bottom:12px; letter-spacing:.3px; }
+  h2 { font-size:19px; margin:34px 0 12px; padding-bottom:8px; border-bottom:2px solid var(--line); }
+  h2 .num { color:var(--orange); font-weight:700; margin-right:8px; }
+  h3 { font-size:15px; margin:18px 0 6px; }
+  p, li { font-size:14.5px; }
+  a { color:var(--orange); }
+  code { background:#eef1f4; padding:1px 6px; border-radius:5px; font-size:13px;
+         font-family: "SF Mono", Consolas, "Roboto Mono", monospace; }
+  pre { background:var(--navy); color:#e8eef4; padding:14px 16px; border-radius:10px; overflow:auto; font-size:13px;
+        font-family: "SF Mono", Consolas, "Roboto Mono", monospace; line-height:1.5; }
+  pre .c { color:#7f97a8; }
+  table { width:100%; border-collapse:collapse; margin:10px 0; font-size:14px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; font-size:12.5px; text-transform:uppercase; letter-spacing:.4px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:18px 22px; }
+  .status { display:flex; flex-wrap:wrap; gap:10px; margin:6px 0 4px; }
+  .pill { font-size:13px; font-weight:600; padding:6px 12px; border-radius:999px; }
+  .pill.ok { background:#e7f6ec; color:var(--ok); }
+  .pill.warn { background:var(--warnbg); color:var(--warn); }
+  .note { background:var(--warnbg); border:1px solid #f0d8a8; border-left:4px solid var(--warn);
+          border-radius:8px; padding:12px 16px; margin:14px 0; }
+  .note b { color:var(--warn); }
+  .tip { background:var(--soft); border-left:4px solid var(--orange); border-radius:8px; padding:12px 16px; margin:14px 0; }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  .muted { color:var(--muted); }
+  footer { margin-top:40px; color:var(--muted); font-size:13px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="badge">DEVELOPER HANDOFF</div>
+    <h1>MadeEA Command Center</h1>
+    <p>A multi-user web app where outsourced Executive Assistants run their whole day from one screen.<br>
+       Handoff date: 2 July 2026 · Branch <code style="color:#fff;background:#1f3446">main</code> · repo is fully pushed &amp; up to date.</p>
+  </header>
+
+  <div class="card">
+    <h3 style="margin-top:0">Current status — everything below is live &amp; verified</h3>
+    <div class="status">
+      <span class="pill ok">✓ App deployed (Vercel)</span>
+      <span class="pill ok">✓ Database migrated</span>
+      <span class="pill ok">✓ Shared workspace</span>
+      <span class="pill ok">✓ Email invites deployed</span>
+      <span class="pill warn">⚠ Trim the admin list</span>
+    </div>
+    <p class="muted" style="margin-bottom:0">The only open task is reducing how many accounts are admins (see §6).</p>
+  </div>
+
+  <h2><span class="num">1</span>What it is &amp; the tech</h2>
+  <table>
+    <tr><th>Layer</th><th>What we use</th></tr>
+    <tr><td>Frontend</td><td>Vite + React 18 + TypeScript + Tailwind CSS</td></tr>
+    <tr><td>Data / state</td><td>TanStack React Query, Zustand, React Router, @dnd-kit (drag &amp; drop board)</td></tr>
+    <tr><td>Backend</td><td>Supabase — Postgres, Row-Level Security, Auth, Edge Functions, Storage</td></tr>
+    <tr><td>AI features</td><td>OpenAI (<code>gpt-4o</code> / <code>gpt-4o-mini</code>) called server-side from an edge function</td></tr>
+    <tr><td>Hosting</td><td>Vercel — <b>auto-deploys every push to <code>main</code></b>. GitHub is the source of truth.</td></tr>
+  </table>
+  <p class="muted">Supabase project ref: <code>bglduxferbjmoeqzyypx</code>. Brand: navy <code>#09141f</code> + orange <code>#fd5812</code>.</p>
+
+  <h2><span class="num">2</span>Run it locally</h2>
+  <pre><span class="c"># 1. install</span>
+npm install
+
+<span class="c"># 2. create .env.local (get the values from Supabase → Project Settings → API)</span>
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+
+<span class="c"># 3. run / check / build</span>
+npm run dev      <span class="c"># http://localhost:5173</span>
+npx tsc -b       <span class="c"># type-check</span>
+npm run build    <span class="c"># production build</span></pre>
+  <div class="tip">💡 With <b>no</b> <code>.env.local</code>, the app runs in <b>demo mode</b> against local sample data — fully clickable with no backend. Add the two env vars and it switches to the live Supabase automatically.</div>
+
+  <h2><span class="num">3</span>Things that are NOT automatic (important!)</h2>
+  <p>Pushing to <code>main</code> only redeploys the <b>frontend</b>. These three must be done by hand:</p>
+
+  <h3>a) Database changes (migrations)</h3>
+  <p>SQL files live in <code>supabase/migrations/</code>. Apply a new one by pasting it into the
+     <b>Supabase → SQL Editor</b> and running it (or <code>npx supabase db push</code>). Latest applied: <code>0012_shared_workspace.sql</code>.</p>
+
+  <h3>b) Edge functions (server code)</h3>
+  <pre>npx supabase login
+npx supabase link --project-ref bglduxferbjmoeqzyypx
+npx supabase functions deploy &lt;name&gt; --no-verify-jwt</pre>
+  <p class="muted">All browser-called functions deploy with <code>--no-verify-jwt</code> and check auth <b>inside the code</b> — this is required so the browser's CORS preflight passes. Don't remove that flag.</p>
+
+  <h3>c) Email sending (for invites &amp; password resets)</h3>
+  <p>Set custom SMTP in <b>Supabase → Authentication → Emails</b> (Brevo or Mailgun both work), and set the
+     <b>Site URL / Redirect URLs</b> to the Vercel app so invite links land correctly.</p>
+
+  <h2><span class="num">4</span>How security works (read this)</h2>
+  <div class="tip"><b>The real protection is in the database (RLS), not the buttons.</b> Hiding a button in the UI is only cosmetic — every rule is also enforced by Postgres, so a tampered browser still can't do anything it shouldn't.</div>
+  <ul>
+    <li>Every data table is scoped to the user's workspace: <code>workspace_id = my_workspace()</code>.</li>
+    <li>Only <b>admins</b> can change roles or remove members (<code>is_admin()</code>), enforced server-side.</li>
+    <li>The invite function verifies the caller is an admin <b>on the server</b> and never trusts the browser for the workspace. The secret service key lives only inside the function.</li>
+  </ul>
+  <div class="note">There are <b>two different "role" fields</b> — don't confuse them:
+    <ul style="margin:6px 0 0">
+      <li><code>profiles.role</code> = a <b>job title</b> shown in the sidebar (e.g. "Elite EA"). Cosmetic — no permissions.</li>
+      <li><code>memberships.role</code> = the real permission: <code>admin</code> or <code>ea</code>. <b>This</b> controls admin access.</li>
+    </ul>
+  </div>
+
+  <h2><span class="num">5</span>Recently built (last few sessions)</h2>
+  <table>
+    <tr><th>Feature</th><th>Where</th></tr>
+    <tr><td>Admin panel — list accounts, roles, activity, invite, promote/remove</td><td><code>src/pages/Admin.tsx</code> · route <code>/admin</code></td></tr>
+    <tr><td>Admin ↔ user switch (admin-only nav link)</td><td><code>src/components/layout/Sidebar.tsx</code></td></tr>
+    <tr><td>Version history / "What's new"</td><td><code>src/pages/Changelog.tsx</code> · <code>src/lib/changelog.ts</code></td></tr>
+    <tr><td>Shared team workspace + workspace-wide visibility</td><td><code>supabase/migrations/0012_shared_workspace.sql</code></td></tr>
+    <tr><td>Secure email invites</td><td><code>supabase/functions/invite-member/index.ts</code></td></tr>
+    <tr><td>Guided tour (never covers target, opens mobile menu)</td><td><code>src/components/GuidedTour.tsx</code></td></tr>
+    <tr><td>Data layer (all Supabase queries &amp; mutations)</td><td><code>src/data/hooks.ts</code></td></tr>
+  </table>
+
+  <h2><span class="num">6</span>⚠ The one open task — trim the admin list</h2>
+  <p>When everyone's separate accounts were merged into one workspace, their old admin roles were kept (so nobody got locked out). Right now <b>4 of 5 accounts are admins</b>. Set the ones who shouldn't be admins back to EA:</p>
+  <pre><span class="c">-- see who is what</span>
+select u.email, m.role
+from memberships m join auth.users u on u.id = m.user_id
+order by m.role, u.email;
+
+<span class="c">-- make everyone an EA, then re-promote only the real admin(s)</span>
+update memberships set role = 'ea';
+update memberships set role = 'admin'
+where user_id in (select id from auth.users where email in ('kyle@disruptorsmedia.com'));</pre>
+  <p class="muted">Or just use the <b>“Make EA”</b> button in the Admin panel — role changes are reliable now.</p>
+
+  <h2><span class="num">7</span>Decisions left for the next developer</h2>
+  <ul>
+    <li><b>Gmail privacy:</b> because the whole team shares one workspace, if an EA connects their personal Gmail (Integrations), those synced messages become visible to everyone. Decide whether to keep it shared or make Gmail-synced messages private per person.</li>
+    <li><b>Sample data:</b> the workspace has seeded example clients/tasks. New EAs can see them. Clear them if you want a blank slate.</li>
+    <li><b>Integrations:</b> Google (Gmail/Calendar) &amp; Slack functions exist; the Google app is in testing mode (keep under 100 users to skip Google's verification).</li>
+    <li><b>Optional Notes module</b> — discussed, not built.</li>
+  </ul>
+
+  <h2><span class="num">8</span>Where to look first</h2>
+  <ul>
+    <li><code>HANDOFF.md</code> — the fuller text version of this page.</li>
+    <li><code>PROGRESS-REPORT.md</code> — plain-English status for the client.</li>
+    <li><code>src/data/hooks.ts</code> — every backend call goes through here (best place to understand the data).</li>
+    <li><code>supabase/migrations/</code> — the whole database schema &amp; security, in order.</li>
+    <li><b>Test/admin login:</b> credentials are in <code>.env.local</code> (not in Git) — get them from Kyle.</li>
+  </ul>
+
+  <footer>MadeEA Command Center · handoff prepared 2 July 2026</footer>
+</div>
+</body>
+</html>
