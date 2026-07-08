@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { CommandCenterProvider } from "@/hooks/useCommandCenter";
 import { AppShell } from "@/components/layout/AppShell";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
@@ -53,7 +54,11 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter basename={import.meta.env.BASE_URL}>
-          <Gate />
+          {/* CommandCenterProvider needs the router (navigation) + query client
+              (data), so it sits inside BrowserRouter and wraps the app. */}
+          <CommandCenterProvider>
+            <Gate />
+          </CommandCenterProvider>
         </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>

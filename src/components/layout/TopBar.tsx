@@ -2,6 +2,7 @@ import { Menu, HelpCircle } from "lucide-react";
 import { todayLabel } from "@/lib/utils";
 import { GlobalSearch } from "./GlobalSearch";
 import { Notifications } from "./Notifications";
+import { CommandCenterButton } from "@/components/command-center";
 import { useTour } from "@/store/tour";
 
 export function TopBar({ onMenu }: { onMenu?: () => void }) {
@@ -15,8 +16,8 @@ export function TopBar({ onMenu }: { onMenu?: () => void }) {
       <div className="ml-auto flex items-center gap-2">
         <div className="hidden items-center gap-2 sm:flex" data-tour="search">
           <GlobalSearch />
-          <kbd className="pill hidden bg-surface-2 text-faint lg:inline-flex">⌘K</kbd>
         </div>
+        <CommandCenterButton />
         <button className="btn-ghost px-2" onClick={startTour} aria-label="Replay guided tour" title="Replay tour">
           <HelpCircle size={18} />
         </button>
