@@ -62,8 +62,10 @@ function thread(opts: {
     preview: opts.preview,
     body: opts.preview,
     category: reply ? "archive" : "reply",
+    direction: "inbound",
     received_at: received.toISOString(),
     first_reply_at: reply ? reply.toISOString() : null,
+    reply_received_at: null,
     time: received.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
     client_id: opts.client.id,
     client_name: opts.client.name,
@@ -165,6 +167,7 @@ export const MEETINGS: Meeting[] = [
 export const TASKS: Task[] = [
   {
     id: "demo-task-1",
+    updated_at: at(-1, 9),
     title: "Send Q3 board pack to the investment committee",
     client_name: "Priya Raman",
     due_label: "Friday",
@@ -177,6 +180,7 @@ export const TASKS: Task[] = [
   },
   {
     id: "demo-task-2",
+    updated_at: at(-9, 14), // untouched for over a week -> stale
     title: "Confirm auditor availability for October",
     client_name: "Priya Raman",
     due_label: "Next week",
@@ -189,6 +193,7 @@ export const TASKS: Task[] = [
   },
   {
     id: "demo-task-3",
+    updated_at: at(-7, 12), // old, but DONE -> must never be flagged
     title: "Circulate Q2 minutes",
     client_name: "Priya Raman",
     due_label: "Done",
@@ -201,6 +206,7 @@ export const TASKS: Task[] = [
   },
   {
     id: "demo-task-4",
+    updated_at: at(-6, 10), // stale
     title: "Collect moodboard feedback",
     client_name: "Marcus Bell",
     due_label: "Monday",
@@ -212,6 +218,45 @@ export const TASKS: Task[] = [
     depends_on: null,
   },
 ];
+
+/**
+ * Something WE sent. `replyAfterDays: null` means they never wrote back — which is
+ * exactly the blind spot this feature exists to surface: it sits in Sent, not the
+ * inbox, so nothing in the app would otherwise notice it going quiet.
+ */
+function sent(opts: {
+  client: { id: string; name: string; title: string; company: string; email: string } | null;
+  to: string;
+  subject: string;
+  preview: string;
+  daysAgo: number;
+  hour: number;
+  replyAfterDays: number | null;
+}): Message {
+  const at_ = weekdayAt(opts.daysAgo, opts.hour);
+  const id = `demo-sent-${++seq}`;
+  return {
+    id,
+    thread_id: `demo-thread-out-${seq}`,
+    sender_name: opts.to,
+    sender_email: opts.client?.email ?? null,
+    subject: opts.subject,
+    preview: opts.preview,
+    body: opts.preview,
+    category: "reply",
+    direction: "outbound",
+    received_at: at_.toISOString(),
+    first_reply_at: null,
+    reply_received_at:
+      opts.replyAfterDays === null
+        ? null
+        : new Date(at_.getTime() + opts.replyAfterDays * 86_400_000).toISOString(),
+    time: at_.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+    client_id: opts.client?.id ?? null,
+    client_name: opts.client?.name,
+    client_title: opts.client ? `${opts.client.title}, ${opts.client.company}` : undefined,
+  };
+}
 
 // Response-time history. Threads are split across the last 30 days and the 30
 // before that, so the trend indicator has two periods to compare.
@@ -244,4 +289,11 @@ export const MESSAGES: Message[] = [
   thread({ client: ELENA, subject: "Q2 fee note", preview: "Approved, please proceed.", daysAgo: 36, hour: 9, replyAfterHours: 4 }),
   thread({ client: ELENA, subject: "Diary clash", preview: "Can we move Tuesday's call?", daysAgo: 44, hour: 16, replyAfterHours: 5 }),
   thread({ client: ELENA, subject: "Retainer renewal", preview: "Let's discuss terms for next year.", daysAgo: 58, hour: 11, replyAfterHours: 5 }),
+
+  // --- Mail WE sent. The ones with no reply are the dead threads. ---
+  sent({ client: MARCUS, to: "Marcus Bell", subject: "Re: invoice question — revised schedule", preview: "Attaching the revised fee schedule. Let me know if the photography day works.", daysAgo: 6, hour: 11, replyAfterDays: null }),
+  sent({ client: ELENA, to: "Elena Fischer", subject: "Lease review — clause 14 redline", preview: "Redlined draft attached, flagging the break clause for your view.", daysAgo: 3, hour: 15, replyAfterDays: null }),
+  sent({ client: null, to: "Tom Whitfield", subject: "Q3 offsite logistics", preview: "Chasing the venue contract — can you confirm the numbers?", daysAgo: 7, hour: 9, replyAfterDays: null }),
+  // Control: answered, so it must NOT be flagged.
+  sent({ client: PRIYA, to: "Priya Raman", subject: "Board pack — final", preview: "Final version attached ahead of Thursday.", daysAgo: 5, hour: 16, replyAfterDays: 1 }),
 ];

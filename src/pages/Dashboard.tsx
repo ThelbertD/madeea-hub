@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CheckSquare, Calendar, Mail, Workflow, Sparkles, AlertTriangle, Timer } from "lucide-react";
+import { CheckSquare, Calendar, Mail, Workflow, Sparkles, AlertTriangle, Timer, BellRing } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge, PageHeader } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
@@ -8,10 +8,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTasks, useMeetings, useClients, useMessages, useAutomations } from "@/data/hooks";
 import { useSlaSettings } from "@/store/slaSettings";
 import { clientSla, dayLength, formatDuration, waitingHours, thresholdsFor } from "@/lib/sla";
+import { useFollowUps } from "@/hooks/useFollowUps";
+import { FollowUpRow } from "@/components/FollowUpRow";
 import type { Meeting } from "@/types/db";
 
-const KPI_ICONS = [CheckSquare, Calendar, Mail, Timer, Workflow];
-const KPI_ICON_COLORS = ["text-accent", "text-sky-400", "text-amber-400", "text-red-400", "text-emerald-400"];
+const KPI_ICONS = [CheckSquare, Calendar, Mail, Timer, BellRing, Workflow];
+const KPI_ICON_COLORS = ["text-accent", "text-sky-400", "text-amber-400", "text-red-400", "text-amber-400", "text-emerald-400"];
 const priorityLabel: Record<string, string> = { urgent: "Urgent", high: "In Progress", normal: "Pending", low: "Done" };
 const meetingLabel: Record<string, string> = { prepared: "Prepared", needs_prep: "Needs Prep", pending: "Pending" };
 
@@ -25,6 +27,7 @@ export default function Dashboard() {
   const { data: automations = [] } = useAutomations();
   const [prepFor, setPrepFor] = useState<Meeting | null>(null);
   const cfg = useSlaSettings((s) => s.config);
+  const { flags } = useFollowUps();
 
   const slas = useMemo(
     () => clients.map((c) => ({ client: c, sla: clientSla(c, messages, cfg) })),
@@ -37,7 +40,7 @@ export default function Dashboard() {
   const breachedMail = useMemo(() => {
     const dl = dayLength(cfg);
     return messages
-      .filter((m) => !m.first_reply_at && m.received_at)
+      .filter((m) => m.direction !== "outbound" && !m.first_reply_at && m.received_at)
       .map((m) => {
         const client = clients.find((c) => c.id === m.client_id || c.name === m.client_name) ?? null;
         const hours = waitingHours(m, cfg) ?? 0;
@@ -50,8 +53,9 @@ export default function Dashboard() {
   const kpis = [
     { label: "Tasks Active", value: tasks.filter((t) => t.status !== "done").length },
     { label: "Meetings Today", value: meetings.length },
-    { label: "Emails Pending", value: messages.filter((m) => !m.first_reply_at).length },
+    { label: "Emails Pending", value: messages.filter((m) => m.direction !== "outbound" && !m.first_reply_at).length },
     { label: "Clients At Risk", value: atRisk.length, onClick: () => nav("/clients") },
+    { label: "Needs Follow-up", value: flags.length },
     { label: "Automations Running", value: automations.filter((a) => a.status === "active").length },
   ];
 
@@ -62,10 +66,10 @@ export default function Dashboard() {
     <div>
       <PageHeader title={`Good afternoon, ${user?.name?.split(" ")[0] ?? "there"}.`} subtitle="Here's your command center." />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         {kpis.map((kpi, i) => {
           const Icon = KPI_ICONS[i];
-          const alert = kpi.label === "Clients At Risk" && kpi.value > 0;
+          const alert = (kpi.label === "Clients At Risk" || kpi.label === "Needs Follow-up") && kpi.value > 0;
           return (
             <div
               key={kpi.label}
@@ -81,6 +85,18 @@ export default function Dashboard() {
           );
         })}
       </div>
+
+      {flags.length > 0 && (
+        <section className="card mt-5 p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-semibold">Needs Follow-up</h2>
+            <span className="text-xs text-faint">Nothing has come back on these</span>
+          </div>
+          <div className="space-y-2">
+            {flags.slice(0, 4).map((f) => <FollowUpRow key={f.id} flag={f} />)}
+          </div>
+        </section>
+      )}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <section className="card p-5">

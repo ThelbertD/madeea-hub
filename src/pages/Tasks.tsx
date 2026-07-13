@@ -11,6 +11,8 @@ import { Plus, Trash2, GripVertical, Pencil, CalendarDays, CheckSquare, Repeat, 
 import type { Task, TaskStatus, Priority, Subtask, Recurrence } from "@/types/db";
 import { Badge, PageHeader, Modal } from "@/components/ui";
 import { useTasks, useTaskMutations, useClients } from "@/data/hooks";
+import { useFollowUps } from "@/hooks/useFollowUps";
+import { FollowUpRow } from "@/components/FollowUpRow";
 import { TASK_TEMPLATES, type TaskTemplate } from "@/lib/taskTemplates";
 import { cn } from "@/lib/utils";
 
@@ -101,6 +103,8 @@ export default function Tasks() {
   const tasks = data ?? EMPTY_TASKS;
   const { setStatus, create, update, remove } = useTaskMutations();
   const { data: clients = [] } = useClients();
+  const { flags } = useFollowUps();
+  const staleTasks = flags.filter((f) => f.kind === "stale_task");
   const [board, setBoard] = useState<Board>(group([]));
   const [activeId, setActiveId] = useState<string | null>(null);
   const [modal, setModal] = useState(false);
@@ -200,6 +204,19 @@ export default function Tasks() {
           </div>
         }
       />
+
+      {staleTasks.length > 0 && (
+        <section className="card mb-4 p-4">
+          <div className="mb-2.5 flex items-center gap-2">
+            <h2 className="text-sm font-semibold">Needs Follow-up</h2>
+            <span className="pill bg-amber-500/15 text-amber-400">{staleTasks.length}</span>
+            <span className="ml-auto text-xs text-faint">Untouched long enough to be forgotten</span>
+          </div>
+          <div className="space-y-2">
+            {staleTasks.map((f) => <FollowUpRow key={f.id} flag={f} />)}
+          </div>
+        </section>
+      )}
 
       {isLoading ? (
         <p className="text-sm text-faint">Loading tasks…</p>

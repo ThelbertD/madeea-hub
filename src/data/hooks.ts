@@ -1,9 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import * as seed from "@/data/seed";
-import type { Task, TaskStatus, Client, Meeting, Message, Automation, Sop, SopRun, AutomationRun, Reminder } from "@/types/db";
+import type { Task, TaskStatus, Client, Meeting, Message, Automation, Sop, SopRun, AutomationRun, Reminder, Snooze } from "@/types/db";
 import type { ClientDoc } from "@/lib/meetingPrep";
 import { addDemoTask, loadDemoTasks, removeDemoTask, updateDemoTask } from "@/store/demoTasks";
+import { loadSnoozes, saveSnooze } from "@/store/demoSnoozes";
 
 // Live Supabase data layer with a read-only seed fallback for demo mode
 // (no creds). owner_id + workspace_id auto-fill via column defaults (migration
@@ -18,6 +19,7 @@ const mapTask = (r: TaskRow): Task => ({
   subtasks: Array.isArray(r.subtasks) ? r.subtasks : [],
   recurrence: r.recurrence ?? "none",
   depends_on: r.depends_on ?? null,
+  updated_at: (r as { updated_at?: string | null }).updated_at ?? null,
   client_name: r.clients?.name ?? "Unassigned",
 });
 
@@ -38,7 +40,9 @@ export function useTasks() {
       if (!supabase) return [...loadDemoTasks(), ...seed.TASKS];
       const { data, error } = await supabase
         .from("tasks")
-        .select("id,title,due_label,due_at,priority,status,subtasks,recurrence,depends_on,client_id,clients(name)")
+        // `*` rather than an explicit column list: migration 0013 adds updated_at, and
+        // this way the new column flows through the moment it exists.
+        .select("*,clients(name)")
         .order("created_at", { ascending: true });
       if (error) throw error;
       return (data as unknown as TaskRow[]).map(mapTask);
@@ -243,7 +247,7 @@ export function useMessages() {
       if (!supabase) return seed.MESSAGES;
       const { data, error } = await supabase
         .from("messages")
-        .select("id,sender_name,subject,preview,body,category,received_at,client_id,clients(name,title,company)")
+        .select("*,clients(name,title,company)")
         .order("received_at", { ascending: true });
       if (error) throw error;
       return (data as any[]).map((m) => ({
@@ -251,6 +255,11 @@ export function useMessages() {
         category: m.category,
         received_at: m.received_at ?? null,
         time: m.received_at ? new Date(m.received_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "",
+        thread_id: m.thread_id ?? null,
+        sender_email: m.sender_email ?? null,
+        direction: m.direction ?? "inbound",
+        first_reply_at: m.first_reply_at ?? null,
+        reply_received_at: m.reply_received_at ?? null,
         client_id: m.client_id ?? null,
         client_name: m.clients?.name,
         client_title: m.clients ? `${m.clients.title}, ${m.clients.company}` : undefined,
@@ -588,3 +597,39 @@ export function useInviteMember() {
 }
 
 export { live };
+
+// ---------------- snoozes ----------------
+// Backs the "stop nagging me about this" action. The `snoozes` table arrives with
+// migration 0013; until then (and in demo mode) this falls back to localStorage so
+// the button still works rather than silently doing nothing.
+export function useSnoozes() {
+  return useQuery<Snooze[]>({
+    queryKey: ["snoozes"],
+    queryFn: async () => {
+      if (!supabase) return loadSnoozes();
+      const { data, error } = await supabase.from("snoozes").select("id,item_type,item_id,snooze_until");
+      if (error) return loadSnoozes(); // table not migrated yet
+      return data as Snooze[];
+    },
+    retry: false,
+  });
+}
+
+export function useSnoozeMutations() {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["snoozes"] });
+
+  const snooze = useMutation({
+    mutationFn: async ({ item_type, item_id, days }: { item_type: Snooze["item_type"]; item_id: string; days: number }) => {
+      const until = new Date(Date.now() + days * 86_400_000).toISOString();
+      if (!supabase) { saveSnooze(item_type, item_id, until); return; }
+      const { error } = await supabase
+        .from("snoozes")
+        .upsert({ item_type, item_id, snooze_until: until }, { onConflict: "workspace_id,item_type,item_id" });
+      if (error) saveSnooze(item_type, item_id, until); // pre-migration fallback
+    },
+    onSettled: invalidate,
+  });
+
+  return { snooze };
+}

@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTour } from "@/store/tour";
 import { useMyRole } from "@/data/hooks";
 import { useSlaSettings } from "@/store/slaSettings";
+import { useFollowUpSettings } from "@/store/followupSettings";
 import { APP_VERSION } from "@/lib/changelog";
 
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -15,6 +16,7 @@ export default function Settings() {
   const startTour = useTour((s) => s.start);
   const { data: role } = useMyRole();
   const { config, update, reset } = useSlaSettings();
+  const { config: fu, update: updateFu, reset: resetFu } = useFollowUpSettings();
 
   function replay() {
     nav("/");
@@ -54,6 +56,77 @@ export default function Settings() {
             </button>
           </section>
         )}
+
+        <section className="card p-5">
+          <p className="field-label">Follow-up nudges</p>
+          <p className="mb-4 text-sm text-muted">
+            How long something can go quiet before it's flagged. A nudge surfaces once and then
+            stays out of your way — snoozing it buys another {fu.snoozeDays} days.
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="field-label" htmlFor="fu-client">Client email — no reply for</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="fu-client"
+                    className="input"
+                    type="number"
+                    min={1}
+                    value={fu.clientEmailDays}
+                    onChange={(e) => updateFu({ clientEmailDays: Math.max(1, Number(e.target.value) || 1) })}
+                  />
+                  <span className="text-xs text-faint">days</span>
+                </div>
+              </div>
+              <div>
+                <label className="field-label" htmlFor="fu-internal">Other email — no reply for</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="fu-internal"
+                    className="input"
+                    type="number"
+                    min={1}
+                    value={fu.internalEmailDays}
+                    onChange={(e) => updateFu({ internalEmailDays: Math.max(1, Number(e.target.value) || 1) })}
+                  />
+                  <span className="text-xs text-faint">days</span>
+                </div>
+              </div>
+              <div>
+                <label className="field-label" htmlFor="fu-task">Task — no update for</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="fu-task"
+                    className="input"
+                    type="number"
+                    min={1}
+                    value={fu.taskDays}
+                    onChange={(e) => updateFu({ taskDays: Math.max(1, Number(e.target.value) || 1) })}
+                  />
+                  <span className="text-xs text-faint">days</span>
+                </div>
+              </div>
+              <div>
+                <label className="field-label" htmlFor="fu-snooze">Snooze lasts</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="fu-snooze"
+                    className="input"
+                    type="number"
+                    min={1}
+                    value={fu.snoozeDays}
+                    onChange={(e) => updateFu({ snoozeDays: Math.max(1, Number(e.target.value) || 1) })}
+                  />
+                  <span className="text-xs text-faint">days</span>
+                </div>
+              </div>
+          </div>
+
+          <button className="btn-ghost mt-4 border border-border" onClick={resetFu}>
+            <RotateCcw size={15} /> Reset to defaults
+          </button>
+        </section>
 
         <section className="card p-5">
           <p className="field-label">Response-time SLA</p>

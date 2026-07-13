@@ -49,6 +49,8 @@ export interface Task {
   subtasks: Subtask[];
   recurrence: Recurrence;
   depends_on: string | null;
+  /** Bumped by a DB trigger on any change (migration 0013). Drives staleness. */
+  updated_at?: string | null;
 }
 
 export interface Message {
@@ -70,6 +72,17 @@ export interface Message {
   thread_id?: string | null;
   sender_email?: string | null;
   first_reply_at?: string | null;
+  /** 'inbound' = they wrote to us. 'outbound' = we wrote to them. */
+  direction?: "inbound" | "outbound";
+  /** Outbound only: when THEY replied. Null on an old outbound = a dead thread. */
+  reply_received_at?: string | null;
+}
+
+export interface Snooze {
+  id: string;
+  item_type: "message" | "task";
+  item_id: string;
+  snooze_until: string;
 }
 
 export interface Meeting {

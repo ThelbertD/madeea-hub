@@ -83,14 +83,16 @@ export function addBusinessHours(from: Date, hours: number, cfg: SlaConfig): Dat
   return cur;
 }
 
-/** Hours to first reply, or null while the thread is still unanswered. */
+/** Hours to OUR first reply, or null while the thread is still unanswered. */
 export function responseHours(m: Message, cfg: SlaConfig): number | null {
+  if (m.direction === "outbound") return null;
   if (!m.received_at || !m.first_reply_at) return null;
   return elapsedHours(new Date(m.received_at), new Date(m.first_reply_at), cfg);
 }
 
-/** How long an unanswered email has been waiting, on the same clock. */
+/** How long an unanswered INBOUND email has been waiting, on the same clock. */
 export function waitingHours(m: Message, cfg: SlaConfig, now = new Date()): number | null {
+  if (m.direction === "outbound") return null; // we sent it; we aren't the ones replying
   if (!m.received_at || m.first_reply_at) return null;
   return elapsedHours(new Date(m.received_at), now, cfg);
 }
@@ -111,9 +113,19 @@ export function statusFor(hours: number, t: { ok: number; risk: number }): Exclu
 const RANK: Record<SlaStatus, number> = { no_data: -1, on_track: 0, at_risk: 1, breached: 2 };
 const worse = (a: SlaStatus, b: SlaStatus) => (RANK[b] > RANK[a] ? b : a);
 
-/** Only inbound mail belonging to this client. */
+/**
+ * Only INBOUND mail belonging to this client.
+ *
+ * The direction filter is load-bearing: once outbound mail exists in the table, a
+ * message we SENT has no `first_reply_at` either — and without this it would be
+ * counted as a client waiting on us, inflating "oldest waiting" and dragging
+ * clients into At Risk for emails they owe US a reply to. Mail we sent that went
+ * unanswered is a dead thread (lib/followups.ts), not an SLA breach.
+ */
 export function messagesForClient(client: Client, messages: Message[]): Message[] {
-  return messages.filter((m) => m.client_id === client.id || m.client_name === client.name);
+  return messages.filter(
+    (m) => m.direction !== "outbound" && (m.client_id === client.id || m.client_name === client.name),
+  );
 }
 
 export interface ThreadResponse {

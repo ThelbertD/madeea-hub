@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Sparkles, Mail, AlertTriangle } from "lucide-react";
+import { Sparkles, Mail, AlertTriangle, MailQuestion } from "lucide-react";
 import type { Message } from "@/types/db";
 import { Badge, PageHeader } from "@/components/ui";
 import { initials } from "@/lib/utils";
@@ -7,11 +7,15 @@ import { generate } from "@/lib/ai";
 import { useClients, useMessages } from "@/data/hooks";
 import { useSlaSettings } from "@/store/slaSettings";
 import { dayLength, formatDuration, isBreaching, responseHours, waitingHours } from "@/lib/sla";
+import { useFollowUps } from "@/hooks/useFollowUps";
 
-const TABS = ["All", "Urgent", "Awaiting Reply", "Delegated"] as const;
+const TABS = ["All", "Needs Follow-up", "Urgent", "Awaiting Reply", "Delegated"] as const;
 const categoryLabel: Record<string, string> = { urgent: "Urgent", reply: "Reply", delegate: "Delegate", archive: "Archive" };
+// "Needs Follow-up" is resolved against the flag list, not a field on the message,
+// so it stays in lockstep with the badge count everywhere else.
 const TAB_FILTER: Record<(typeof TABS)[number], (m: Message) => boolean> = {
   All: () => true,
+  "Needs Follow-up": () => true,
   Urgent: (m) => m.category === "urgent",
   "Awaiting Reply": (m) => m.category === "reply",
   Delegated: (m) => m.category === "delegate",
@@ -24,12 +28,18 @@ export default function Communication() {
   const dl = dayLength(cfg);
   const clientFor = (m: Message) =>
     clients.find((c) => c.id === m.client_id || c.name === m.client_name) ?? null;
+  const { flags } = useFollowUps();
+  const deadThreads = flags.filter((f) => f.kind === "dead_thread");
   const [tab, setTab] = useState<(typeof TABS)[number]>("All");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const list = messages.filter(TAB_FILTER[tab]);
+  const deadIds = new Map(deadThreads.map((f) => [f.itemId, f]));
+  const list =
+    tab === "Needs Follow-up"
+      ? messages.filter((m) => deadIds.has(m.id))
+      : messages.filter(TAB_FILTER[tab]);
   const selected = messages.find((m) => m.id === selectedId) ?? list[0] ?? null;
 
   useEffect(() => { setDraft(""); }, [selectedId]);
@@ -83,6 +93,11 @@ export default function Communication() {
             className={`rounded-lg px-3 py-1.5 text-xs font-medium ${tab === t ? "bg-accent text-white" : "bg-surface-2 text-muted hover:text-zinc-100"}`}
           >
             {t}
+            {t === "Needs Follow-up" && deadThreads.length > 0 && (
+              <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${tab === t ? "bg-white/20" : "bg-amber-500/20 text-amber-400"}`}>
+                {deadThreads.length}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -122,7 +137,16 @@ export default function Communication() {
                     <p className="truncate text-sm">{m.subject}</p>
                     <p className="truncate text-xs text-faint">{m.preview}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      {m.direction === "outbound" && (
+                        <span className="pill bg-sky-500/15 text-sky-400">Sent</span>
+                      )}
                       <Badge tone={m.category}>{categoryLabel[m.category]}</Badge>
+                      {deadIds.has(m.id) && (
+                        <span className="pill bg-amber-500/15 text-amber-400">
+                          <MailQuestion size={11} />
+                          {deadIds.get(m.id)!.reason}
+                        </span>
+                      )}
                       {breached && (
                         <span className="pill bg-red-500/15 text-red-400">
                           <AlertTriangle size={11} />
@@ -139,7 +163,11 @@ export default function Communication() {
                 </button>
                 );
               })}
-              {list.length === 0 && <p className="py-6 text-center text-xs text-faint">Nothing in this view.</p>}
+              {list.length === 0 && (
+                <p className="py-6 text-center text-xs text-faint">
+                  {tab === "Needs Follow-up" ? "Nothing is waiting on a reply." : "Nothing in this view."}
+                </p>
+              )}
             </div>
           </div>
 
