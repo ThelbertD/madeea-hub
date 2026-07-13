@@ -1,9 +1,12 @@
-import { CheckSquare, Calendar, Mail, Workflow } from "lucide-react";
+import { useState } from "react";
+import { CheckSquare, Calendar, Mail, Workflow, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge, PageHeader } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
+import { MeetingPrepPacket } from "@/components/MeetingPrepPacket";
 import { useAuth } from "@/hooks/useAuth";
 import { useTasks, useMeetings, useClients, useMessages, useAutomations } from "@/data/hooks";
+import type { Meeting } from "@/types/db";
 
 const KPI_ICONS = [CheckSquare, Calendar, Mail, Workflow];
 const KPI_ICON_COLORS = ["text-accent", "text-sky-400", "text-amber-400", "text-emerald-400"];
@@ -18,6 +21,7 @@ export default function Dashboard() {
   const { data: clients = [] } = useClients();
   const { data: messages = [] } = useMessages();
   const { data: automations = [] } = useAutomations();
+  const [prepFor, setPrepFor] = useState<Meeting | null>(null);
 
   const kpis = [
     { label: "Tasks Active", value: tasks.filter((t) => t.status !== "done").length },
@@ -83,13 +87,21 @@ export default function Dashboard() {
           </div>
           <div className="space-y-2">
             {meetings.map((m) => (
-              <div key={m.id} className="flex items-center gap-3 rounded-lg bg-surface-2 p-3">
+              <div key={m.id} className="group flex items-center gap-3 rounded-lg bg-surface-2 p-3">
                 <span className="w-16 shrink-0 text-xs font-medium text-muted">{m.time}</span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{m.title}</p>
                   <p className="truncate text-xs text-faint">{m.with}</p>
                 </div>
                 <Badge tone={m.status}>{meetingLabel[m.status]}</Badge>
+                <button
+                  className="shrink-0 rounded-md p-1.5 text-faint transition-colors hover:bg-accent/10 hover:text-accent"
+                  onClick={() => setPrepFor(m)}
+                  title="Prep packet"
+                  aria-label={`Open prep packet for ${m.title}`}
+                >
+                  <Sparkles size={15} />
+                </button>
               </div>
             ))}
             {meetings.length === 0 && <p className="py-4 text-center text-xs text-faint">No meetings</p>}
@@ -112,6 +124,8 @@ export default function Dashboard() {
           {clients.length === 0 && <p className="py-4 text-center text-xs text-faint">No clients</p>}
         </div>
       </section>
+
+      <MeetingPrepPacket meeting={prepFor} open={Boolean(prepFor)} onClose={() => setPrepFor(null)} />
     </div>
   );
 }

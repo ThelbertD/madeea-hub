@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import * as seed from "@/data/seed";
 import type { Task, TaskStatus, Client, Meeting, Message, Automation, Sop, SopRun, AutomationRun, Reminder } from "@/types/db";
+import type { ClientDoc } from "@/lib/meetingPrep";
 
 // Live Supabase data layer with a read-only seed fallback for demo mode
 // (no creds). owner_id + workspace_id auto-fill via column defaults (migration
@@ -182,10 +183,35 @@ export function useMeetings() {
       if (error) throw error;
       return (data as any[]).map((m) => ({
         id: m.id, title: m.title, status: m.status,
+        starts_at: m.starts_at ?? null,
         time: m.starts_at ? new Date(m.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "",
         with: m.clients?.name ?? "Internal",
+        client_id: m.client_id ?? null,
       }));
     },
+  });
+}
+
+// ---------------- client docs ----------------
+// The Vault has no file store, so a client's "documents" are the AI Suite outputs
+// logged against them in ai_generations. Fetched lazily, per client, only when a
+// prep packet opens — there's no need to hold every generation in memory.
+export function useClientDocs(clientId: string | null | undefined) {
+  return useQuery<ClientDoc[]>({
+    queryKey: ["client-docs", clientId],
+    enabled: Boolean(clientId),
+    queryFn: async () => {
+      if (!supabase || !clientId) return [];
+      const { data, error } = await supabase
+        .from("ai_generations")
+        .select("id,tool,format,output,created_at")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data as ClientDoc[];
+    },
+    retry: false,
   });
 }
 
@@ -203,7 +229,9 @@ export function useMessages() {
       return (data as any[]).map((m) => ({
         id: m.id, sender_name: m.sender_name, subject: m.subject, preview: m.preview, body: m.body,
         category: m.category,
+        received_at: m.received_at ?? null,
         time: m.received_at ? new Date(m.received_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "",
+        client_id: m.client_id ?? null,
         client_name: m.clients?.name,
         client_title: m.clients ? `${m.clients.title}, ${m.clients.company}` : undefined,
       }));

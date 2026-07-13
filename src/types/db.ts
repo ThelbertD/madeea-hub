@@ -52,10 +52,12 @@ export interface Message {
   id: string;
   sender_name: string;
   time: string;
+  received_at: string | null;
   subject: string;
   preview: string;
   body: string;
   category: MessageCategory;
+  client_id?: string | null;
   client_name?: string;
   client_title?: string;
 }
@@ -63,8 +65,10 @@ export interface Message {
 export interface Meeting {
   id: string;
   time: string;
+  starts_at: string | null;
   title: string;
   with: string;
+  client_id: string | null;
   status: MeetingStatus;
 }
 
