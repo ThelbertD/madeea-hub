@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   DndContext, DragOverlay, PointerSensor, KeyboardSensor, useSensor, useSensors,
@@ -131,12 +131,19 @@ export default function Tasks() {
   const [form, setForm] = useState(BLANK);
 
   const me = members.find((m) => m.is_me);
-  const visible = tasks.filter((t) => {
-    if (who === "all") return true;
-    if (who === "unassigned") return !t.assignee_id;
-    if (who === "mine") return t.assignee_id === me?.user_id;
-    return t.assignee_id === who;
-  });
+  // MUST be memoised: this feeds a useEffect that calls setBoard. A fresh array on
+  // every render meant the effect re-ran on every render, setting state, re-rendering,
+  // rebuilding the array — an infinite loop ("Maximum update depth exceeded").
+  const visible = useMemo(
+    () =>
+      tasks.filter((t) => {
+        if (who === "all") return true;
+        if (who === "unassigned") return !t.assignee_id;
+        if (who === "mine") return t.assignee_id === me?.user_id;
+        return t.assignee_id === who;
+      }),
+    [tasks, who, me?.user_id],
+  );
 
   useEffect(() => { if (!activeId) setBoard(group(visible)); }, [visible, activeId]);
 

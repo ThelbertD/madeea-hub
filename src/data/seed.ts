@@ -15,7 +15,7 @@ export const CLIENTS: Client[] = DEMO ? demo.CLIENTS : [];
 export const TASKS: Task[] = DEMO ? demo.TASKS : [];
 export const MESSAGES: Message[] = DEMO ? demo.MESSAGES : [];
 export const MEETINGS: Meeting[] = DEMO ? demo.MEETINGS : [];
-export const AUTOMATIONS: Automation[] = [];
+export const AUTOMATIONS: Automation[] = DEMO ? demo.AUTOMATIONS : [];
 
 // Default SOPs (product templates, not user data) — fallback for demo mode.
 // In live mode these are seeded globally by migration 0007.

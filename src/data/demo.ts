@@ -6,7 +6,7 @@
  * empty arrays and reads real records from Supabase. This file exists purely so a
  * preview build has something on screen to click, and it is inert everywhere else.
  */
-import type { Client, Meeting, Message, Task } from "@/types/db";
+import type { Automation, Client, Meeting, Message, Task } from "@/types/db";
 import { addBusinessHours } from "@/lib/sla";
 import { DEFAULT_SLA } from "@/store/slaSettings";
 
@@ -403,4 +403,39 @@ export const MESSAGES: Message[] = [
   sent({ client: null, to: "Tom Whitfield", subject: "Q3 offsite logistics", preview: "Chasing the venue contract — can you confirm the numbers?", daysAgo: 7, hour: 9, replyAfterDays: null }),
   // Control: answered, so it must NOT be flagged.
   sent({ client: PRIYA, to: "Priya Raman", subject: "Board pack — final", preview: "Final version attached ahead of Thursday.", daysAgo: 5, hour: 16, replyAfterDays: 1 }),
+];
+
+// Automations for the preview. Descriptions say what each one DOES; nothing here
+// runs on a timer (there is no scheduler), so no schedule is claimed.
+export const AUTOMATIONS: Automation[] = [
+  {
+    id: "demo-auto-1",
+    name: "Executive Priority Alignment",
+    description: "Analyses your calendar, emails and task list to produce a prioritised daily briefing, flagging conflicts and urgent items.",
+    status: "active",
+    last_run: new Date(now - 2 * 3_600_000).toLocaleString(),
+    total_runs: 34,
+    trigger: "Manual",
+    action: "Generate daily briefing",
+  },
+  {
+    id: "demo-auto-2",
+    name: "Meeting Preparation",
+    description: "Compiles attendee profiles, agenda drafts and prep notes for upcoming meetings.",
+    status: "active",
+    last_run: new Date(now - 26 * 3_600_000).toLocaleString(),
+    total_runs: 18,
+    trigger: "Manual",
+    action: "Generate meeting briefs",
+  },
+  {
+    id: "demo-auto-3",
+    name: "Executive Summary Inbox",
+    description: "Triages the inbox — archives newsletters and surfaces only what needs executive attention.",
+    status: "paused",
+    last_run: new Date(now - 5 * 3_600_000).toLocaleString(),
+    total_runs: 51,
+    trigger: "Manual",
+    action: "Triage inbox",
+  },
 ];

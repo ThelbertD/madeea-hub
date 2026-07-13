@@ -6,6 +6,7 @@ import type { ClientDoc } from "@/lib/meetingPrep";
 import { addDemoTask, loadDemoTasks, removeDemoTask, updateDemoTask } from "@/store/demoTasks";
 import { loadSnoozes, saveSnooze } from "@/store/demoSnoozes";
 import { loadAssignees, loadDemoTaskEvents, saveAssignee } from "@/store/demoAssignees";
+import { applyDemo, demoCreate, demoDelete, demoId, demoPatch } from "@/store/demoWrites";
 
 // Live Supabase data layer with a read-only seed fallback for demo mode
 // (no creds). owner_id + workspace_id auto-fill via column defaults (migration
@@ -158,7 +159,7 @@ export function useClients() {
   return useQuery<Client[]>({
     queryKey: ["clients"],
     queryFn: async () => {
-      if (!supabase) return seed.CLIENTS;
+      if (!supabase) return applyDemo("clients", seed.CLIENTS);
       const { data, error } = await supabase
         .from("clients")
         .select("*")
@@ -176,7 +177,12 @@ export function useClientMutations() {
 
   const create = useMutation({
     mutationFn: async (input: Partial<Client> & { name: string }) => {
-      if (!supabase) return;
+      if (!supabase) {
+        demoCreate("clients", {
+          id: demoId(), tags: [], active_tasks: [], schedule: [], avatar_url: null, ...input,
+        });
+        return;
+      }
       const { error } = await supabase.from("clients").insert({
         name: input.name, title: input.title, company: input.company,
         preferred_channel: input.preferred_channel, tone: input.tone,
@@ -190,7 +196,7 @@ export function useClientMutations() {
 
   const update = useMutation({
     mutationFn: async ({ id, ...fields }: Partial<Client> & { id: string }) => {
-      if (!supabase) return;
+      if (!supabase) { demoPatch("clients", id, fields); return; }
       const { error } = await supabase.from("clients").update(fields).eq("id", id);
       if (error) throw error;
     },
@@ -199,7 +205,7 @@ export function useClientMutations() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      if (!supabase) return;
+      if (!supabase) { demoDelete("clients", id); return; }
       const { error } = await supabase.from("clients").delete().eq("id", id);
       if (error) throw error;
     },
@@ -261,7 +267,7 @@ export function useMessages() {
   return useQuery<Message[]>({
     queryKey: ["messages"],
     queryFn: async () => {
-      if (!supabase) return seed.MESSAGES;
+      if (!supabase) return applyDemo("messages", seed.MESSAGES);
       const { data, error } = await supabase
         .from("messages")
         .select("*,clients(name,title,company)")
@@ -290,7 +296,7 @@ export function useAutomations() {
   return useQuery<Automation[]>({
     queryKey: ["automations"],
     queryFn: async () => {
-      if (!supabase) return seed.AUTOMATIONS;
+      if (!supabase) return applyDemo("automations", seed.AUTOMATIONS);
       const { data, error } = await supabase
         .from("automations")
         .select("id,name,description,status,total_runs,last_run_at,trigger,action,is_custom")
@@ -310,7 +316,7 @@ export function useAutomationMutations() {
 
   const toggle = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "active" | "paused" }) => {
-      if (!supabase) return;
+      if (!supabase) { demoPatch("automations", id, { status }); return; }
       const { error } = await supabase.from("automations").update({ status }).eq("id", id);
       if (error) throw error;
     },
@@ -338,7 +344,10 @@ export function useAutomationMutations() {
 
   const create = useMutation({
     mutationFn: async (input: { name: string; description: string; trigger: string; action: string }) => {
-      if (!supabase) return;
+      if (!supabase) {
+        demoCreate("automations", { id: demoId(), ...input, status: "active", is_custom: true, total_runs: 0, last_run: "Never" });
+        return;
+      }
       const { error } = await supabase.from("automations").insert({ ...input, status: "active", is_custom: true, automation_key: "custom" });
       if (error) throw error;
     },
@@ -347,7 +356,7 @@ export function useAutomationMutations() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      if (!supabase) return;
+      if (!supabase) { demoDelete("automations", id); return; }
       const { error } = await supabase.from("automations").delete().eq("id", id);
       if (error) throw error;
     },
@@ -378,7 +387,7 @@ export function useMessageMutations() {
   const qc = useQueryClient();
   const setCategory = useMutation({
     mutationFn: async ({ id, category }: { id: string; category: Message["category"] }) => {
-      if (!supabase) return;
+      if (!supabase) { demoPatch("messages", id, { category }); return; }
       const { error } = await supabase.from("messages").update({ category }).eq("id", id);
       if (error) throw error;
     },
@@ -408,7 +417,7 @@ export function useSopRuns() {
   return useQuery<SopRun[]>({
     queryKey: ["sop_runs"],
     queryFn: async () => {
-      if (!supabase) return [];
+      if (!supabase) return applyDemo<SopRun>("sop_runs", []);
       const { data, error } = await supabase
         .from("sop_runs")
         .select("id,sop_id,client_id,checked,status,started_at,completed_at")
@@ -425,7 +434,14 @@ export function useSopMutations() {
 
   const start = useMutation({
     mutationFn: async ({ sop_id, client_id }: { sop_id: string; client_id?: string | null }) => {
-      if (!supabase) return null;
+      if (!supabase) {
+        const run: SopRun = {
+          id: demoId(), sop_id, client_id: client_id ?? null, checked: [],
+          status: "in_progress", started_at: new Date().toISOString(), completed_at: null,
+        };
+        demoCreate("sop_runs", run);
+        return run;
+      }
       const { data, error } = await supabase
         .from("sop_runs")
         .insert({ sop_id, client_id: client_id ?? null, checked: [], status: "in_progress" })
@@ -439,7 +455,7 @@ export function useSopMutations() {
 
   const setChecked = useMutation({
     mutationFn: async ({ id, checked }: { id: string; checked: string[] }) => {
-      if (!supabase) return;
+      if (!supabase) { demoPatch("sop_runs", id, { checked }); return; }
       const { error } = await supabase.from("sop_runs").update({ checked }).eq("id", id);
       if (error) throw error;
     },
@@ -448,7 +464,10 @@ export function useSopMutations() {
 
   const complete = useMutation({
     mutationFn: async (id: string) => {
-      if (!supabase) return;
+      if (!supabase) {
+        demoPatch("sop_runs", id, { status: "completed", completed_at: new Date().toISOString() });
+        return;
+      }
       const { error } = await supabase
         .from("sop_runs")
         .update({ status: "completed", completed_at: new Date().toISOString() })
@@ -466,7 +485,8 @@ export function useReminders() {
   return useQuery<Reminder[]>({
     queryKey: ["reminders"],
     queryFn: async () => {
-      if (!supabase) return [];
+      // Demo mode: reminders created via the bell live in the local write overlay.
+      if (!supabase) return applyDemo<Reminder>("reminders", []);
       const { data, error } = await supabase
         .from("reminders")
         .select("id,label,remind_at,dismissed,task_id")
@@ -484,7 +504,10 @@ export function useReminderMutations() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ["reminders"] });
   const create = useMutation({
     mutationFn: async (input: { label: string; remind_at: string; task_id?: string | null }) => {
-      if (!supabase) return;
+      if (!supabase) {
+        demoCreate("reminders", { id: demoId(), label: input.label, remind_at: input.remind_at, task_id: input.task_id ?? null, dismissed: false });
+        return;
+      }
       const { error } = await supabase.from("reminders").insert({ label: input.label, remind_at: input.remind_at, task_id: input.task_id ?? null });
       if (error) throw error;
     },
@@ -492,7 +515,7 @@ export function useReminderMutations() {
   });
   const dismiss = useMutation({
     mutationFn: async (id: string) => {
-      if (!supabase) return;
+      if (!supabase) { demoDelete("reminders", id); return; }
       const { error } = await supabase.from("reminders").update({ dismissed: true }).eq("id", id);
       if (error) throw error;
     },
@@ -562,7 +585,7 @@ export function useWorkspaceMembers() {
   return useQuery<Member[]>({
     queryKey: ["members"],
     queryFn: async () => {
-      if (!supabase) return demoMembers();
+      if (!supabase) return applyDemo("members", demoMembers(), "user_id");
       const { data: auth } = await supabase.auth.getUser();
       const myId = auth.user?.id ?? "";
       const { data: mem, error } = await supabase
@@ -598,7 +621,7 @@ export function useMemberMutations() {
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["members"] }); qc.invalidateQueries({ queryKey: ["my-role"] }); };
   const setRole = useMutation({
     mutationFn: async ({ user_id, role }: { user_id: string; role: MemberRole }) => {
-      if (!supabase) return;
+      if (!supabase) { demoPatch("members", user_id, { role }); return; }
       // .select() so we can tell a real change from a silent RLS no-op (Supabase
       // returns no error when a policy filters the row out and 0 rows change).
       const { data, error } = await supabase.from("memberships").update({ role }).eq("user_id", user_id).select("user_id");
@@ -609,7 +632,7 @@ export function useMemberMutations() {
   });
   const remove = useMutation({
     mutationFn: async ({ user_id }: { user_id: string }) => {
-      if (!supabase) return;
+      if (!supabase) { demoDelete("members", user_id); return; }
       const { data, error } = await supabase.from("memberships").delete().eq("user_id", user_id).select("user_id");
       if (error) throw error;
       if (!data || data.length === 0) throw new Error("Not removed — admin rights required, or the member is in another workspace.");
