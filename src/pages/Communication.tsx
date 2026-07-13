@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { Sparkles, Mail } from "lucide-react";
+import { Sparkles, Mail, AlertTriangle } from "lucide-react";
 import type { Message } from "@/types/db";
 import { Badge, PageHeader } from "@/components/ui";
 import { initials } from "@/lib/utils";
 import { generate } from "@/lib/ai";
-import { useMessages } from "@/data/hooks";
+import { useClients, useMessages } from "@/data/hooks";
+import { useSlaSettings } from "@/store/slaSettings";
+import { dayLength, formatDuration, isBreaching, responseHours, waitingHours } from "@/lib/sla";
 
 const TABS = ["All", "Urgent", "Awaiting Reply", "Delegated"] as const;
 const categoryLabel: Record<string, string> = { urgent: "Urgent", reply: "Reply", delegate: "Delegate", archive: "Archive" };
@@ -17,6 +19,11 @@ const TAB_FILTER: Record<(typeof TABS)[number], (m: Message) => boolean> = {
 
 export default function Communication() {
   const { data: messages = [], isLoading } = useMessages();
+  const { data: clients = [] } = useClients();
+  const cfg = useSlaSettings((s) => s.config);
+  const dl = dayLength(cfg);
+  const clientFor = (m: Message) =>
+    clients.find((c) => c.id === m.client_id || c.name === m.client_name) ?? null;
   const [tab, setTab] = useState<(typeof TABS)[number]>("All");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -89,11 +96,20 @@ export default function Communication() {
           <div className="card p-3">
             <p className="px-2 pb-2 text-xs text-faint">{list.length} messages</p>
             <div className="space-y-1">
-              {list.map((m) => (
+              {list.map((m) => {
+                const late = isBreaching(m, clientFor(m), cfg);
+                const waiting = waitingHours(m, cfg);
+                // Only an UNANSWERED breach is actionable — that's what gets the alarm
+                // styling. An answered-but-late thread is history: worth recording, but
+                // flagging it red implies work that no longer exists.
+                const breached = late && waiting !== null;
+                const missed = late && waiting === null;
+                const answeredIn = responseHours(m, cfg);
+                return (
                 <button
                   key={m.id}
                   onClick={() => setSelectedId(m.id)}
-                  className={`flex w-full gap-3 rounded-lg p-3 text-left transition-colors ${selected?.id === m.id ? "bg-surface-2" : "hover:bg-surface-2"}`}
+                  className={`flex w-full gap-3 rounded-lg p-3 text-left transition-colors ${selected?.id === m.id ? "bg-surface-2" : "hover:bg-surface-2"} ${breached ? "border border-red-500/40 bg-red-500/5" : ""}`}
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/20 text-xs font-semibold text-accent-soft">
                     {initials(m.sender_name)}
@@ -105,10 +121,24 @@ export default function Communication() {
                     </div>
                     <p className="truncate text-sm">{m.subject}</p>
                     <p className="truncate text-xs text-faint">{m.preview}</p>
-                    <div className="mt-1"><Badge tone={m.category}>{categoryLabel[m.category]}</Badge></div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <Badge tone={m.category}>{categoryLabel[m.category]}</Badge>
+                      {breached && (
+                        <span className="pill bg-red-500/15 text-red-400">
+                          <AlertTriangle size={11} />
+                          SLA Breached · waiting {formatDuration(waiting!, dl)}
+                        </span>
+                      )}
+                      {missed && answeredIn !== null && (
+                        <span className="pill bg-zinc-500/15 text-faint">
+                          Missed SLA · replied in {formatDuration(answeredIn, dl)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </button>
-              ))}
+                );
+              })}
               {list.length === 0 && <p className="py-6 text-center text-xs text-faint">Nothing in this view.</p>}
             </div>
           </div>

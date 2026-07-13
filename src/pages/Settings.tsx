@@ -1,21 +1,32 @@
 import { useNavigate } from "react-router-dom";
-import { PlayCircle, LogOut, ShieldCheck, Sparkles } from "lucide-react";
+import { PlayCircle, LogOut, ShieldCheck, Sparkles, RotateCcw } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
 import { useTour } from "@/store/tour";
 import { useMyRole } from "@/data/hooks";
+import { useSlaSettings } from "@/store/slaSettings";
 import { APP_VERSION } from "@/lib/changelog";
+
+const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
 export default function Settings() {
   const { user, signOut } = useAuth();
   const nav = useNavigate();
   const startTour = useTour((s) => s.start);
   const { data: role } = useMyRole();
+  const { config, update, reset } = useSlaSettings();
 
   function replay() {
     nav("/");
     setTimeout(() => startTour(), 150);
   }
+
+  const toggleDay = (d: number) =>
+    update({
+      days: config.days.includes(d)
+        ? config.days.filter((x) => x !== d)
+        : [...config.days, d].sort(),
+    });
 
   return (
     <div>
@@ -43,6 +54,122 @@ export default function Settings() {
             </button>
           </section>
         )}
+
+        <section className="card p-5">
+          <p className="field-label">Response-time SLA</p>
+          <p className="mb-4 text-sm text-muted">
+            Thresholds for the On&nbsp;Track / At&nbsp;Risk / Breached flags on each client. Response time is
+            measured to the <span className="text-zinc-200">first reply</span> on a thread.
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="field-label" htmlFor="sla-ok">On Track — reply within</label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="sla-ok"
+                  className="input"
+                  type="number"
+                  min={1}
+                  value={config.okHours}
+                  onChange={(e) => update({ okHours: Math.max(1, Number(e.target.value) || 1) })}
+                />
+                <span className="text-xs text-faint">hrs</span>
+              </div>
+            </div>
+            <div>
+              <label className="field-label" htmlFor="sla-risk">Breached — beyond</label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="sla-risk"
+                  className="input"
+                  type="number"
+                  min={1}
+                  value={config.riskHours}
+                  onChange={(e) => update({ riskHours: Math.max(1, Number(e.target.value) || 1) })}
+                />
+                <span className="text-xs text-faint">hrs</span>
+              </div>
+            </div>
+          </div>
+          {config.riskHours <= config.okHours && (
+            <p className="mt-2 text-xs text-amber-400">
+              The breach threshold should be higher than the On Track one, or nothing can ever be At Risk.
+            </p>
+          )}
+
+          <label className="mt-4 flex cursor-pointer items-start gap-2.5">
+            <input
+              type="checkbox"
+              className="mt-0.5 accent-[#fd5812]"
+              checked={config.businessHoursOnly}
+              onChange={(e) => update({ businessHoursOnly: e.target.checked })}
+            />
+            <span className="text-sm">
+              Count working hours only
+              <span className="block text-xs text-faint">
+                An email arriving Friday evening and answered Monday morning costs an hour, not a weekend.
+                With this on, the hours above are <span className="text-zinc-200">working</span> hours — so{" "}
+                {config.okHours}h is about{" "}
+                {(config.okHours / Math.max(1, config.endHour - config.startHour)).toFixed(1)} working days.
+              </span>
+            </span>
+          </label>
+
+          {config.businessHoursOnly && (
+            <div className="mt-4 space-y-3 rounded-lg bg-surface-2 p-3">
+              <div className="flex items-center gap-2">
+                <span className="field-label mb-0 flex-1">Working hours</span>
+                <input
+                  className="input w-20 py-1"
+                  type="number"
+                  min={0}
+                  max={23}
+                  aria-label="Start hour"
+                  value={config.startHour}
+                  onChange={(e) => update({ startHour: Math.min(23, Math.max(0, Number(e.target.value) || 0)) })}
+                />
+                <span className="text-xs text-faint">to</span>
+                <input
+                  className="input w-20 py-1"
+                  type="number"
+                  min={1}
+                  max={24}
+                  aria-label="End hour"
+                  value={config.endHour}
+                  onChange={(e) => update({ endHour: Math.min(24, Math.max(1, Number(e.target.value) || 1)) })}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="field-label mb-0 flex-1">Working days</span>
+                {DAY_LABELS.map((label, d) => (
+                  <button
+                    key={d}
+                    onClick={() => toggleDay(d)}
+                    aria-pressed={config.days.includes(d)}
+                    aria-label={["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d]}
+                    className={`h-7 w-7 rounded-md text-xs font-medium transition-colors ${
+                      config.days.includes(d)
+                        ? "bg-accent text-white"
+                        : "bg-surface text-faint hover:text-zinc-100"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {config.endHour <= config.startHour && (
+                <p className="text-xs text-amber-400">
+                  The working day ends before it starts — falling back to calendar time until this is fixed.
+                </p>
+              )}
+            </div>
+          )}
+
+          <button className="btn-ghost mt-4 border border-border" onClick={reset}>
+            <RotateCcw size={15} /> Reset to defaults
+          </button>
+        </section>
 
         <section className="card p-5">
           <p className="field-label">What's new</p>

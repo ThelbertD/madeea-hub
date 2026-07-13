@@ -7,6 +7,8 @@
  * preview build has something on screen to click, and it is inert everywhere else.
  */
 import type { Client, Meeting, Message, Task } from "@/types/db";
+import { addBusinessHours } from "@/lib/sla";
+import { DEFAULT_SLA } from "@/store/slaSettings";
 
 // Anchored to "now" so the packet's relative times ("2 days ago") stay sensible
 // however long after this was written the preview gets opened.
@@ -16,6 +18,58 @@ const at = (dayOffset: number, hour: number, min = 0): string => {
   d.setHours(hour, min, 0, 0);
   return d.toISOString();
 };
+
+/**
+ * Like `at`, but never lands on a weekend — nudged back to the preceding Friday.
+ * Without this, a demo email that happens to arrive on a Saturday accrues zero
+ * business hours and the client looks flawless for reasons that aren't real.
+ */
+const weekdayAt = (daysAgo: number, hour: number, min = 0): Date => {
+  const d = new Date(now - daysAgo * 86_400_000);
+  if (d.getDay() === 6) d.setDate(d.getDate() - 1);
+  if (d.getDay() === 0) d.setDate(d.getDate() - 2);
+  d.setHours(hour, min, 0, 0);
+  return d;
+};
+
+/**
+ * One inbound email plus the reply we sent `replyAfterHours` WORKING hours later
+ * (null = still unanswered). Authored in working hours because that's the unit the
+ * SLA metric measures in — writing these as calendar hours makes a "slow" reply
+ * across a weekend land as a fast one.
+ */
+let seq = 0;
+function thread(opts: {
+  client: { id: string; name: string; title: string; company: string; email: string };
+  subject: string;
+  preview: string;
+  daysAgo: number;
+  hour: number;
+  replyAfterHours: number | null;
+}): Message {
+  const received = weekdayAt(opts.daysAgo, opts.hour);
+  const reply =
+    opts.replyAfterHours === null
+      ? null
+      : addBusinessHours(received, opts.replyAfterHours, DEFAULT_SLA);
+  const id = `demo-msg-${++seq}`;
+  return {
+    id,
+    thread_id: `demo-thread-${seq}`,
+    sender_name: opts.client.name,
+    sender_email: opts.client.email,
+    subject: opts.subject,
+    preview: opts.preview,
+    body: opts.preview,
+    category: reply ? "archive" : "reply",
+    received_at: received.toISOString(),
+    first_reply_at: reply ? reply.toISOString() : null,
+    time: received.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+    client_id: opts.client.id,
+    client_name: opts.client.name,
+    client_title: `${opts.client.title}, ${opts.client.company}`,
+  };
+}
 
 export const CLIENTS: Client[] = [
   {
@@ -47,7 +101,26 @@ export const CLIENTS: Client[] = [
     active_tasks: [],
     schedule: [],
   },
+  {
+    id: "demo-client-3",
+    name: "Elena Fischer",
+    title: "Managing Partner",
+    company: "Vantage Group",
+    preferred_channel: "Email",
+    tone: "Direct",
+    tags: ["Retainer"],
+    bio: "Managing Partner at Vantage Group. Runs the firm's real-estate practice.",
+    preferences_notes: "Expects same-day acknowledgement even if the full answer takes longer.",
+    avatar_url: null,
+    active_tasks: [],
+    schedule: [],
+  },
 ];
+
+// Contact details used to build the demo threads below.
+const PRIYA = { id: "demo-client-1", name: "Priya Raman", title: "Chief Operating Officer", company: "Northwind Capital", email: "priya@northwind.com" };
+const MARCUS = { id: "demo-client-2", name: "Marcus Bell", title: "Founder", company: "Halden Studio", email: "marcus@haldenstudio.com" };
+const ELENA = { id: "demo-client-3", name: "Elena Fischer", title: "Managing Partner", company: "Vantage Group", email: "elena@vantage.group" };
 
 export const MEETINGS: Meeting[] = [
   {
@@ -140,31 +213,35 @@ export const TASKS: Task[] = [
   },
 ];
 
+// Response-time history. Threads are split across the last 30 days and the 30
+// before that, so the trend indicator has two periods to compare.
 export const MESSAGES: Message[] = [
-  {
-    id: "demo-msg-1",
-    sender_name: "Priya Raman",
-    subject: "Re: Q3 board pack — one more thing",
-    preview: "Can you add the headcount forecast before Thursday?",
-    body: "Can you add the headcount forecast before Thursday? The committee will ask.",
-    category: "reply",
-    received_at: at(-2, 9, 12),
-    time: "9:12 AM",
-    client_id: "demo-client-1",
-    client_name: "Priya Raman",
-    client_title: "Chief Operating Officer, Northwind Capital",
-  },
-  {
-    id: "demo-msg-2",
-    sender_name: "Marcus Bell",
-    subject: "moodboards",
-    preview: "sent you three directions, second one is my favourite",
-    body: "sent you three directions, second one is my favourite",
-    category: "reply",
-    received_at: at(-1, 18, 40),
-    time: "6:40 PM",
-    client_id: "demo-client-2",
-    client_name: "Marcus Bell",
-    client_title: "Founder, Halden Studio",
-  },
+  // --- Priya: answered within the hour, and quicker than last month. On Track, improving. ---
+  thread({ client: PRIYA, subject: "Re: Q3 board pack — one more thing", preview: "Can you add the headcount forecast before Thursday? The committee will ask.", daysAgo: 2, hour: 9, replyAfterHours: 1 }),
+  thread({ client: PRIYA, subject: "Committee papers", preview: "Circulating Thursday — anything outstanding from your side?", daysAgo: 9, hour: 11, replyAfterHours: 2 }),
+  thread({ client: PRIYA, subject: "Auditor intro", preview: "Happy to make the introduction if useful.", daysAgo: 17, hour: 15, replyAfterHours: 1.5 }),
+  thread({ client: PRIYA, subject: "Travel for the offsite", preview: "Can we look at the Thursday flights instead?", daysAgo: 26, hour: 10, replyAfterHours: 2 }),
+  // previous period — slower, which is what makes the trend "improving"
+  thread({ client: PRIYA, subject: "Q2 minutes", preview: "Could you send the signed copy?", daysAgo: 38, hour: 14, replyAfterHours: 6 }),
+  thread({ client: PRIYA, subject: "Board dinner", preview: "Do we have a venue yet?", daysAgo: 46, hour: 9, replyAfterHours: 5 }),
+  thread({ client: PRIYA, subject: "Headcount plan", preview: "Sharing the draft for comment.", daysAgo: 55, hour: 16, replyAfterHours: 7 }),
+
+  // --- Marcus: over two working days to reply, plus one email still open. Breached. ---
+  thread({ client: MARCUS, subject: "moodboards", preview: "sent you three directions, second one is my favourite", daysAgo: 4, hour: 10, replyAfterHours: null }),
+  thread({ client: MARCUS, subject: "invoice question", preview: "is the retainer inclusive of the photography day?", daysAgo: 8, hour: 12, replyAfterHours: 21 }),
+  thread({ client: MARCUS, subject: "Re: kickoff", preview: "works for me, send an invite whenever", daysAgo: 15, hour: 16, replyAfterHours: 24 }),
+  thread({ client: MARCUS, subject: "site visit", preview: "can we push to the following week?", daysAgo: 23, hour: 9, replyAfterHours: 19 }),
+  // previous period — was merely slow, not breaching; he has got worse
+  thread({ client: MARCUS, subject: "logo files", preview: "which format do you need these in?", daysAgo: 41, hour: 11, replyAfterHours: 10 }),
+  thread({ client: MARCUS, subject: "contract", preview: "signed and returned", daysAgo: 52, hour: 15, replyAfterHours: 11 }),
+
+  // --- Elena: was same-day, has drifted to next-day-plus. At Risk, worsening. ---
+  thread({ client: ELENA, subject: "Lease review", preview: "Need your read on clause 14 before Friday.", daysAgo: 3, hour: 9, replyAfterHours: 12 }),
+  thread({ client: ELENA, subject: "Partner offsite dates", preview: "Which of the three weeks works?", daysAgo: 12, hour: 14, replyAfterHours: 13 }),
+  thread({ client: ELENA, subject: "Re: valuation deck", preview: "Two comments on the appendix.", daysAgo: 21, hour: 10, replyAfterHours: 11 }),
+  thread({ client: ELENA, subject: "Introductions", preview: "Connecting you with our new CFO.", daysAgo: 29, hour: 13, replyAfterHours: 10 }),
+  // previous period — comfortably same-day
+  thread({ client: ELENA, subject: "Q2 fee note", preview: "Approved, please proceed.", daysAgo: 36, hour: 9, replyAfterHours: 4 }),
+  thread({ client: ELENA, subject: "Diary clash", preview: "Can we move Tuesday's call?", daysAgo: 44, hour: 16, replyAfterHours: 5 }),
+  thread({ client: ELENA, subject: "Retainer renewal", preview: "Let's discuss terms for next year.", daysAgo: 58, hour: 11, replyAfterHours: 5 }),
 ];

@@ -17,6 +17,9 @@ export interface Client {
   avatar_url: string | null;
   active_tasks: { title: string; status: string }[];
   schedule: { when: string; what: string }[];
+  /** Per-client SLA overrides. Null/absent = fall back to the global thresholds. */
+  sla_ok_hours?: number | null;
+  sla_risk_hours?: number | null;
 }
 
 export interface AutomationRun {
@@ -60,6 +63,13 @@ export interface Message {
   client_id?: string | null;
   client_name?: string;
   client_title?: string;
+  // SLA fields. Absent on every row today — nothing populates them yet (see
+  // lib/sla.ts). `first_reply_at` is the timestamp of the FIRST message we sent
+  // back on this thread; null means still unanswered, which is not the same as
+  // a response time of zero.
+  thread_id?: string | null;
+  sender_email?: string | null;
+  first_reply_at?: string | null;
 }
 
 export interface Meeting {
