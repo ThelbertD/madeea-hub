@@ -1,4 +1,4 @@
-import type { Automation, Client, Meeting, Message, Task, Sop } from "@/types/db";
+import type { Automation, AutomationRun, Client, Meeting, Message, Task, Sop } from "@/types/db";
 import * as demo from "@/data/demo";
 
 // No dummy data. These empty arrays are the read-only fallback used ONLY in
@@ -15,7 +15,8 @@ export const CLIENTS: Client[] = DEMO ? demo.CLIENTS : [];
 export const TASKS: Task[] = DEMO ? demo.TASKS : [];
 export const MESSAGES: Message[] = DEMO ? demo.MESSAGES : [];
 export const MEETINGS: Meeting[] = DEMO ? demo.MEETINGS : [];
-export const AUTOMATIONS: Automation[] = [];
+export const AUTOMATIONS: Automation[] = DEMO ? demo.AUTOMATIONS : [];
+export const AUTOMATION_RUNS: AutomationRun[] = DEMO ? demo.AUTOMATION_RUNS : [];
 
 // Default SOPs (product templates, not user data) — fallback for demo mode.
 // In live mode these are seeded globally by migration 0007.

@@ -5,10 +5,11 @@ import { Badge, PageHeader } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
 import { MeetingPrepPacket } from "@/components/MeetingPrepPacket";
 import { useAuth } from "@/hooks/useAuth";
-import { useTasks, useMeetings, useClients, useMessages, useAutomations } from "@/data/hooks";
+import { useTasks, useMeetings, useClients, useMessages, useAutomations, useAutomationRuns } from "@/data/hooks";
 import { useSlaSettings } from "@/store/slaSettings";
 import { clientSla, dayLength, formatDuration, waitingHours, thresholdsFor } from "@/lib/sla";
 import { useFollowUps } from "@/hooks/useFollowUps";
+import { healthReport, failing } from "@/lib/automationHealth";
 import { FollowUpRow } from "@/components/FollowUpRow";
 import type { Meeting } from "@/types/db";
 
@@ -25,9 +26,12 @@ export default function Dashboard() {
   const { data: clients = [] } = useClients();
   const { data: messages = [] } = useMessages();
   const { data: automations = [] } = useAutomations();
+  const { data: automationRuns = [] } = useAutomationRuns();
   const [prepFor, setPrepFor] = useState<Meeting | null>(null);
   const cfg = useSlaSettings((s) => s.config);
   const { flags } = useFollowUps();
+  const health = useMemo(() => healthReport(automations, automationRuns), [automations, automationRuns]);
+  const brokenAutomations = failing(health);
 
   const slas = useMemo(
     () => clients.map((c) => ({ client: c, sla: clientSla(c, messages, cfg) })),
@@ -56,7 +60,13 @@ export default function Dashboard() {
     { label: "Emails Pending", value: messages.filter((m) => m.direction !== "outbound" && !m.first_reply_at).length },
     { label: "Clients At Risk", value: atRisk.length, onClick: () => nav("/clients") },
     { label: "Needs Follow-up", value: flags.length },
-    { label: "Automations Running", value: automations.filter((a) => a.status === "active").length },
+    // Was "Automations Running" — a count of enabled toggles, which could never tell
+    // you anything was wrong. Now it leads with the failure if there is one.
+    {
+      label: brokenAutomations.length ? "Automations Failing" : "Automations Healthy",
+      value: brokenAutomations.length || automations.filter((a) => a.status === "active").length,
+      onClick: () => nav("/automation"),
+    },
   ];
 
   const order: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
@@ -69,7 +79,9 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         {kpis.map((kpi, i) => {
           const Icon = KPI_ICONS[i];
-          const alert = (kpi.label === "Clients At Risk" || kpi.label === "Needs Follow-up") && kpi.value > 0;
+          const alert =
+            ((kpi.label === "Clients At Risk" || kpi.label === "Needs Follow-up") && kpi.value > 0) ||
+            kpi.label === "Automations Failing";
           return (
             <div
               key={kpi.label}
