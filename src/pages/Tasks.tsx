@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   DndContext, DragOverlay, PointerSensor, KeyboardSensor, useSensor, useSensors,
   closestCorners, type DragEndEvent, type DragOverEvent, type DragStartEvent,
@@ -67,17 +68,23 @@ function CardBody({ task, blocked, onDelete, onEdit, overlay }: { task: Task; bl
   );
 }
 
-function SortableCard({ task, blocked, onDelete, onEdit }: { task: Task; blocked: boolean; onDelete: () => void; onEdit: () => void }) {
+function SortableCard({ task, blocked, onDelete, onEdit, focused }: { task: Task; blocked: boolean; onDelete: () => void; onEdit: () => void; focused?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} {...attributes} {...listeners}
-      className={cn("group touch-none cursor-grab active:cursor-grabbing", isDragging && "opacity-40")}>
+    // data-task-id is the scroll anchor for the /tasks?task=<id> deep link from the
+    // client activity timeline.
+    <div ref={setNodeRef} data-task-id={task.id} style={{ transform: CSS.Transform.toString(transform), transition }} {...attributes} {...listeners}
+      className={cn(
+        "group touch-none cursor-grab rounded-lg active:cursor-grabbing",
+        isDragging && "opacity-40",
+        focused && "ring-2 ring-accent ring-offset-2 ring-offset-bg",
+      )}>
       <CardBody task={task} blocked={blocked} onDelete={onDelete} onEdit={onEdit} />
     </div>
   );
 }
 
-function Column({ status, label, items, blockedIds, onDelete, onEdit }: { status: TaskStatus; label: string; items: Task[]; blockedIds: Set<string>; onDelete: (id: string) => void; onEdit: (t: Task) => void }) {
+function Column({ status, label, items, blockedIds, onDelete, onEdit, focusId }: { status: TaskStatus; label: string; items: Task[]; blockedIds: Set<string>; onDelete: (id: string) => void; onEdit: (t: Task) => void; focusId?: string | null }) {
   const { setNodeRef } = useSortable({ id: status, data: { type: "column" } });
   return (
     <div className="card flex flex-col p-4">
@@ -87,7 +94,7 @@ function Column({ status, label, items, blockedIds, onDelete, onEdit }: { status
       </div>
       <SortableContext id={status} items={items.map((t) => t.id)} strategy={verticalListSortingStrategy}>
         <div ref={setNodeRef} className="min-h-[160px] flex-1 space-y-2 rounded-lg">
-          {items.map((t) => <SortableCard key={t.id} task={t} blocked={blockedIds.has(t.id)} onDelete={() => onDelete(t.id)} onEdit={() => onEdit(t)} />)}
+          {items.map((t) => <SortableCard key={t.id} task={t} blocked={blockedIds.has(t.id)} onDelete={() => onDelete(t.id)} onEdit={() => onEdit(t)} focused={focusId === t.id} />)}
           {items.length === 0 && <p className="py-8 text-center text-xs text-faint">Drop here</p>}
         </div>
       </SortableContext>
@@ -104,6 +111,9 @@ export default function Tasks() {
   const { setStatus, create, update, remove } = useTaskMutations();
   const { data: clients = [] } = useClients();
   const { flags } = useFollowUps();
+  // Deep link from the client activity timeline: /tasks?task=<id>
+  const [params, setParams] = useSearchParams();
+  const focusId = params.get("task");
   const staleTasks = flags.filter((f) => f.kind === "stale_task");
   const [board, setBoard] = useState<Board>(group([]));
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -113,6 +123,16 @@ export default function Tasks() {
   const [form, setForm] = useState(BLANK);
 
   useEffect(() => { if (!activeId) setBoard(group(tasks)); }, [tasks, activeId]);
+
+  // Scroll the linked card into view and let the highlight fade, rather than
+  // dumping the user on a board and making them hunt for the row.
+  useEffect(() => {
+    if (!focusId || isLoading) return;
+    const el = document.querySelector(`[data-task-id="${focusId}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const t = setTimeout(() => setParams({}, { replace: true }), 2500);
+    return () => clearTimeout(t);
+  }, [focusId, isLoading, setParams]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -224,7 +244,7 @@ export default function Tasks() {
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => setActiveId(null)}>
           <div className="grid gap-4 lg:grid-cols-3">
             {COLUMNS.map((col) => (
-              <Column key={col.key} status={col.key} label={col.label} items={board[col.key]} blockedIds={blockedIds} onDelete={(id) => remove.mutate(id)} onEdit={startEdit} />
+              <Column key={col.key} status={col.key} label={col.label} items={board[col.key]} blockedIds={blockedIds} onDelete={(id) => remove.mutate(id)} onEdit={startEdit} focusId={focusId} />
             ))}
           </div>
           <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)" }}>

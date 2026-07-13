@@ -4,6 +4,7 @@ import type { Client } from "@/types/db";
 import { Badge, PageHeader, Modal } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
 import { SlaBadge, TrendArrow, TREND_LABEL } from "@/components/SlaBadge";
+import { ClientActivity } from "@/components/ClientActivity";
 import { useClients, useTasks, useMeetings, useMessages, useClientMutations } from "@/data/hooks";
 import { useSlaSettings } from "@/store/slaSettings";
 import { clientSla, dayLength, formatDuration } from "@/lib/sla";
@@ -20,6 +21,7 @@ export default function ClientVault() {
   const cfg = useSlaSettings((s) => s.config);
   const dl = dayLength(cfg);
   const [open, setOpen] = useState<Client | null>(null);
+  const [tab, setTab] = useState<"overview" | "activity">("overview");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState(BLANK);
@@ -149,7 +151,7 @@ export default function ClientVault() {
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {c.tags?.map((t) => <span key={t} className="pill bg-surface-2 text-faint">{t}</span>)}
               </div>
-              <button className="btn-ghost mt-4 justify-between border border-border" onClick={() => setOpen(c)}>
+              <button className="btn-ghost mt-4 justify-between border border-border" onClick={() => { setTab("overview"); setOpen(c); }}>
                 View Full Profile <ChevronRight size={15} />
               </button>
             </div>
@@ -188,7 +190,29 @@ export default function ClientVault() {
                 </button>
               </div>
 
-              <div className="mt-4 space-y-4">
+              <div className="mt-4 flex gap-2 border-b border-border">
+                {(["overview", "activity"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTab(t)}
+                    className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium capitalize transition-colors ${
+                      tab === t
+                        ? "border-accent text-accent"
+                        : "border-transparent text-muted hover:text-zinc-100"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+
+              {tab === "activity" && (
+                <div className="mt-4">
+                  <ClientActivity client={open} />
+                </div>
+              )}
+
+              <div className={`mt-4 space-y-4 ${tab === "overview" ? "" : "hidden"}`}>
                 <Section title="Response Time">
                   {sla.status === "no_data" && sla.oldestWaitingHours === null ? (
                     <p className="text-sm text-faint">

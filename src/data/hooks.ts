@@ -20,6 +20,10 @@ const mapTask = (r: TaskRow): Task => ({
   recurrence: r.recurrence ?? "none",
   depends_on: r.depends_on ?? null,
   updated_at: (r as { updated_at?: string | null }).updated_at ?? null,
+  created_at: (r as { created_at?: string | null }).created_at ?? null,
+  completed_at: (r as { completed_at?: string | null }).completed_at ?? null,
+  // Keep the FK, not just the joined name — the timeline needs to match on id.
+  client_id: r.client_id ?? null,
   client_name: r.clients?.name ?? "Unassigned",
 });
 
@@ -202,7 +206,8 @@ export function useMeetings() {
       if (!supabase) return seed.MEETINGS;
       const { data, error } = await supabase
         .from("meetings")
-        .select("id,title,status,starts_at,client_id,clients(name)")
+        // `*` so attendee_emails (migration 0014) flows through on migration.
+        .select("*,clients(name)")
         .order("starts_at", { ascending: true });
       if (error) throw error;
       return (data as any[]).map((m) => ({
@@ -211,6 +216,7 @@ export function useMeetings() {
         time: m.starts_at ? new Date(m.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "",
         with: m.clients?.name ?? "Internal",
         client_id: m.client_id ?? null,
+        attendee_emails: m.attendee_emails ?? [],
       }));
     },
   });

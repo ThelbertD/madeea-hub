@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Sparkles, Mail, AlertTriangle, MailQuestion } from "lucide-react";
 import type { Message } from "@/types/db";
 import { Badge, PageHeader } from "@/components/ui";
@@ -32,6 +33,15 @@ export default function Communication() {
   const deadThreads = flags.filter((f) => f.kind === "dead_thread");
   const [tab, setTab] = useState<(typeof TABS)[number]>("All");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Deep link from the client activity timeline: /communication?message=<id>
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const id = params.get("message");
+    if (!id) return;
+    setSelectedId(id);
+    setTab("All"); // the linked email may not be in the current tab
+    setParams({}, { replace: true });
+  }, [params, setParams]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
 

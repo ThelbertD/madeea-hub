@@ -51,6 +51,11 @@ export interface Task {
   depends_on: string | null;
   /** Bumped by a DB trigger on any change (migration 0013). Drives staleness. */
   updated_at?: string | null;
+  /** The FK the frontend used to drop, matching tasks to clients by name string instead. */
+  client_id?: string | null;
+  created_at?: string | null;
+  /** Stamped by a trigger when status flips to done (migration 0014). */
+  completed_at?: string | null;
 }
 
 export interface Message {
@@ -93,6 +98,8 @@ export interface Meeting {
   with: string;
   client_id: string | null;
   status: MeetingStatus;
+  /** Populated by calendar-sync; how a meeting resolves to a client. */
+  attendee_emails?: string[] | null;
 }
 
 export interface Automation {

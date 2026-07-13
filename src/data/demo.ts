@@ -167,6 +167,9 @@ export const MEETINGS: Meeting[] = [
 export const TASKS: Task[] = [
   {
     id: "demo-task-1",
+    client_id: "demo-client-1",
+    created_at: at(-12, 9),
+    completed_at: null,
     updated_at: at(-1, 9),
     title: "Send Q3 board pack to the investment committee",
     client_name: "Priya Raman",
@@ -180,6 +183,9 @@ export const TASKS: Task[] = [
   },
   {
     id: "demo-task-2",
+    client_id: "demo-client-1",
+    created_at: at(-20, 14),
+    completed_at: null,
     updated_at: at(-9, 14), // untouched for over a week -> stale
     title: "Confirm auditor availability for October",
     client_name: "Priya Raman",
@@ -193,6 +199,9 @@ export const TASKS: Task[] = [
   },
   {
     id: "demo-task-3",
+    client_id: "demo-client-1",
+    created_at: at(-14, 10),
+    completed_at: at(-7, 12), // completed -> its own timeline entry
     updated_at: at(-7, 12), // old, but DONE -> must never be flagged
     title: "Circulate Q2 minutes",
     client_name: "Priya Raman",
@@ -206,6 +215,9 @@ export const TASKS: Task[] = [
   },
   {
     id: "demo-task-4",
+    client_id: "demo-client-2",
+    created_at: at(-16, 10),
+    completed_at: null,
     updated_at: at(-6, 10), // stale
     title: "Collect moodboard feedback",
     client_name: "Marcus Bell",
@@ -213,6 +225,39 @@ export const TASKS: Task[] = [
     due_at: at(4, 10),
     priority: "high",
     status: "todo",
+    subtasks: [],
+    recurrence: "none",
+    depends_on: null,
+  },
+  // Delivered work — the entries that answer "what did we do last month".
+  {
+    id: "demo-task-5",
+    client_id: "demo-client-1",
+    created_at: at(-33, 11),
+    completed_at: at(-24, 16),
+    updated_at: at(-24, 16),
+    title: "Book the Q2 board dinner",
+    client_name: "Priya Raman",
+    due_label: "Done",
+    due_at: at(-25, 12),
+    priority: "normal",
+    status: "done",
+    subtasks: [],
+    recurrence: "none",
+    depends_on: null,
+  },
+  {
+    id: "demo-task-6",
+    client_id: "demo-client-2",
+    created_at: at(-19, 9),
+    completed_at: at(-17, 15),
+    updated_at: at(-17, 15),
+    title: "Send the Halden retainer invoice",
+    client_name: "Marcus Bell",
+    due_label: "Done",
+    due_at: at(-18, 12),
+    priority: "high",
+    status: "done",
     subtasks: [],
     recurrence: "none",
     depends_on: null,

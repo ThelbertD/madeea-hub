@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CheckSquare, Calendar, Mail, Workflow, Sparkles, AlertTriangle, Timer, BellRing } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Badge, PageHeader } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
 import { MeetingPrepPacket } from "@/components/MeetingPrepPacket";
@@ -26,6 +26,18 @@ export default function Dashboard() {
   const { data: messages = [] } = useMessages();
   const { data: automations = [] } = useAutomations();
   const [prepFor, setPrepFor] = useState<Meeting | null>(null);
+  // Deep link from the client activity timeline: /?meeting=<id>. Meetings have no
+  // page of their own, so the prep packet IS the detail view.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const id = params.get("meeting");
+    if (!id) return;
+    const m = meetings.find((x) => x.id === id);
+    if (m) {
+      setPrepFor(m);
+      setParams({}, { replace: true });
+    }
+  }, [params, meetings, setParams]);
   const cfg = useSlaSettings((s) => s.config);
   const { flags } = useFollowUps();
 
