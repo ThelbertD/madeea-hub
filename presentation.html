@@ -1,0 +1,887 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content="MadeEA EA Hub — platform update: six capabilities added, why each exists, and what's live." />
+<meta name="robots" content="noindex" />
+<meta property="og:title" content="MadeEA EA Hub — Platform Update" />
+<meta property="og:description" content="Six capabilities that turn an assistant tool into an operations system." />
+<meta property="og:type" content="website" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%2309141f'/><rect x='7' y='7' width='4' height='18' fill='%23fd5812'/><rect x='14' y='12' width='4' height='13' fill='%23fd5812'/><rect x='21' y='16' width='4' height='9' fill='%23fd5812'/></svg>" />
+<title>MadeEA EA Hub — Platform Update</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { min-height: 100dvh; }
+  img, svg { max-width: 100%; display: block; }
+  button { font: inherit; color: inherit; }
+</style>
+<style>
+  /* ————————————————————————————————————————————————
+     Tokens lifted from the product itself (tailwind.config.ts).
+     The deck is deliberately single-theme: MadeEA Hub is a dark-only
+     product and a projected deck should look like the thing it describes.
+     ———————————————————————————————————————————————— */
+  :root {
+    --ground:   #09141f;
+    --surface:  #0e1f2f;
+    --raised:   #15293b;
+    --rule:     #1c3247;
+    --text:     #e8eef4;
+    --muted:    #a3b3c2;
+    --faint:    #6b7d8f;
+    --accent:   #fd5812;
+    --accent-2: #ff7a42;
+
+    /* Semantic — status, never decoration. Kept distinct from the accent. */
+    --ok:    #34d399;
+    --warn:  #fbbf24;
+    --bad:   #f87171;
+    --info:  #60a5fa;
+
+    --display: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    --body: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+    --pad: clamp(1.75rem, 4vw, 5rem);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--text);
+    font-family: var(--body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ——— Deck mechanics ——— */
+  .deck {
+    height: 100dvh;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .deck { scroll-behavior: auto; }
+  }
+
+  .slide {
+    min-height: 100dvh;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: var(--pad);
+    padding-bottom: calc(var(--pad) + 3rem);
+    position: relative;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* Content lifts in when a slide becomes the active one. */
+  .slide > * { opacity: 0; transform: translateY(14px); transition: opacity .5s ease, transform .5s ease; }
+  .slide.live > * { opacity: 1; transform: none; }
+  .slide.live > *:nth-child(2) { transition-delay: .08s; }
+  .slide.live > *:nth-child(3) { transition-delay: .14s; }
+  @media (prefers-reduced-motion: reduce) {
+    .slide > * { opacity: 1; transform: none; transition: none; }
+  }
+
+  /* ——— Type ——— */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+    margin: 0 0 1rem;
+  }
+  .eyebrow.quiet { color: var(--faint); }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(2.6rem, 6.5vw, 5.25rem);
+    line-height: 1.02;
+    letter-spacing: -.02em;
+    text-wrap: balance;
+    margin: 0 0 1.25rem;
+  }
+  h2 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(1.9rem, 3.6vw, 3rem);
+    line-height: 1.08;
+    letter-spacing: -.015em;
+    text-wrap: balance;
+    margin: 0 0 1rem;
+  }
+  h3 {
+    font-size: .95rem;
+    font-weight: 600;
+    margin: 0 0 .5rem;
+  }
+  .lede {
+    font-size: clamp(1.02rem, 1.5vw, 1.2rem);
+    color: var(--muted);
+    max-width: 60ch;
+    margin: 0 0 1.75rem;
+  }
+  p { margin: 0 0 1rem; }
+  strong { color: var(--text); font-weight: 600; }
+
+  /* ——— Split: argument left, real interface right ——— */
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: clamp(1.75rem, 4vw, 4.5rem);
+    align-items: center;
+  }
+  @media (max-width: 900px) {
+    .split { grid-template-columns: 1fr; gap: 2rem; }
+  }
+
+  .points { list-style: none; margin: 0 0 1.75rem; padding: 0; display: grid; gap: .85rem; }
+  .points li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: .75rem;
+    align-items: start;
+    color: var(--muted);
+    font-size: .95rem;
+  }
+  .points li::before {
+    content: "";
+    width: 6px; height: 6px;
+    margin-top: .55rem;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  /* The judgment call behind each feature — the thing worth saying out loud. */
+  .note {
+    border-left: 2px solid var(--accent);
+    padding: .1rem 0 .1rem 1rem;
+    color: var(--muted);
+    font-size: .9rem;
+    max-width: 56ch;
+  }
+  .note b { color: var(--text); font-weight: 600; }
+
+  /* ——— Product miniatures (built from the app's own component styles) ——— */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: .875rem;
+    padding: 1.1rem;
+    box-shadow: 0 24px 60px -30px rgba(0,0,0,.8);
+  }
+  .card + .card { margin-top: .75rem; }
+  .card.alert { border-color: rgba(248,113,113,.4); background: rgba(248,113,113,.06); }
+  .card.warn  { border-color: rgba(251,191,36,.3);  background: rgba(251,191,36,.05); }
+
+  .row { display: flex; align-items: center; gap: .7rem; }
+  .row + .row { margin-top: .7rem; }
+  .grow { min-width: 0; flex: 1; }
+  .t { font-size: .85rem; font-weight: 600; }
+  .s { font-size: .72rem; color: var(--faint); }
+  .s b { color: var(--warn); font-weight: 600; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: .3rem;
+    border-radius: 999px;
+    padding: .12rem .55rem;
+    font-size: .68rem; font-weight: 600;
+    white-space: nowrap;
+  }
+  .pill.ok   { background: rgba(52,211,153,.15);  color: var(--ok); }
+  .pill.warn { background: rgba(251,191,36,.15);  color: var(--warn); }
+  .pill.bad  { background: rgba(248,113,113,.15); color: var(--bad); }
+  .pill.info { background: rgba(96,165,250,.15);  color: var(--info); }
+  .pill.mute { background: rgba(107,125,143,.18); color: var(--muted); }
+  .pill.acct { background: rgba(253,88,18,.15);   color: var(--accent-2); }
+
+  .chip {
+    width: 26px; height: 26px;
+    border-radius: 999px;
+    display: grid; place-items: center;
+    font-size: .62rem; font-weight: 700;
+    font-family: var(--mono);
+    flex: none;
+  }
+  .c1 { background: rgba(253,88,18,.2);   color: var(--accent-2); }
+  .c2 { background: rgba(96,165,250,.2);  color: var(--info); }
+  .c3 { background: rgba(52,211,153,.2);  color: var(--ok); }
+  .c0 { border: 1px dashed var(--rule); color: var(--faint); }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: .875rem;
+    padding: .85rem 1rem;
+  }
+  .kpi.hot { border-color: rgba(248,113,113,.45); }
+  .kpi .lbl {
+    font-family: var(--mono);
+    font-size: .6rem; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--faint);
+  }
+  .kpi .val {
+    font-family: var(--display);
+    font-size: 2rem; font-weight: 700; line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi .val.bad { color: var(--bad); }
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; }
+
+  /* Run history strip — success/fail at a glance */
+  .strip { display: flex; gap: 3px; }
+  .strip i { width: 6px; height: 14px; border-radius: 2px; display: block; }
+  .strip i.g { background: rgba(52,211,153,.7); }
+  .strip i.r { background: var(--bad); }
+
+  /* Timeline miniature */
+  .tl { border-left: 1px solid var(--rule); padding-left: 1rem; display: grid; gap: .8rem; }
+  .tl .e { display: grid; grid-template-columns: auto 1fr; gap: .6rem; align-items: start; position: relative; }
+  .tl .e::before {
+    content: ""; position: absolute; left: -1.28rem; top: .35rem;
+    width: 9px; height: 9px; border-radius: 999px;
+    background: var(--surface); border: 2px solid var(--faint);
+  }
+  .tl .e.acc::before { border-color: var(--accent); }
+  .tl .e.ok::before  { border-color: var(--ok); }
+
+  /* Bar list (response times) */
+  .bars { display: grid; gap: .45rem; }
+  .bars .b { display: grid; grid-template-columns: 8.5rem 1fr 3rem; gap: .6rem; align-items: center; font-size: .72rem; }
+  .bars .track { height: 7px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+  .bars .fill { height: 100%; border-radius: 999px; }
+  .bars .fill.g { background: rgba(52,211,153,.75); }
+  .bars .fill.a { background: rgba(251,191,36,.8); }
+  .bars .fill.r { background: var(--bad); }
+  .bars .n { text-align: right; color: var(--faint); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .bars .lab { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ——— Contents grid ——— */
+  .index { display: grid; grid-template-columns: repeat(3, 1fr); gap: .9rem; }
+  @media (max-width: 900px) { .index { grid-template-columns: 1fr; } }
+  .index a {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: .875rem;
+    padding: 1.1rem;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color .2s ease, transform .2s ease;
+  }
+  .index a:hover, .index a:focus-visible { border-color: var(--accent); transform: translateY(-2px); }
+  .index .cat {
+    font-family: var(--mono); font-size: .6rem; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--faint); display: block; margin-bottom: .5rem;
+  }
+  .index h3 { font-family: var(--display); font-size: 1.15rem; margin-bottom: .3rem; }
+  .index p { font-size: .82rem; color: var(--muted); margin: 0; }
+
+  /* ——— Status table ——— */
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 34rem; font-size: .88rem; }
+  th, td { text-align: left; padding: .7rem .9rem; border-bottom: 1px solid var(--rule); }
+  th {
+    font-family: var(--mono); font-size: .62rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--faint); font-weight: 600;
+  }
+  td { color: var(--muted); }
+  td:first-child { color: var(--text); font-weight: 600; }
+
+  /* ——— Deck chrome ——— */
+  .rail {
+    position: fixed; right: clamp(.9rem, 2vw, 1.6rem); top: 50%;
+    transform: translateY(-50%);
+    display: grid; gap: .55rem; z-index: 20;
+  }
+  .rail button {
+    width: 9px; height: 9px; padding: 0;
+    border-radius: 999px; border: 1px solid var(--faint);
+    background: transparent; cursor: pointer;
+    transition: background .2s ease, border-color .2s ease, transform .2s ease;
+  }
+  .rail button[aria-current="true"] {
+    background: var(--accent); border-color: var(--accent); transform: scale(1.35);
+  }
+  .rail button:hover { border-color: var(--accent-2); }
+  @media (max-width: 700px) { .rail { display: none; } }
+
+  .hud {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; gap: 1rem;
+    padding: .7rem clamp(1rem, 4vw, 2.5rem);
+    background: linear-gradient(to top, var(--ground) 55%, transparent);
+    z-index: 20;
+    font-family: var(--mono); font-size: .68rem; color: var(--faint);
+    letter-spacing: .08em;
+  }
+  .brand { color: var(--muted); }
+  .brand b { color: var(--accent); font-weight: 700; }
+  .hud .count { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .hud button {
+    background: var(--surface); color: var(--muted);
+    border: 1px solid var(--rule); border-radius: .5rem;
+    padding: .3rem .6rem; cursor: pointer; font: inherit;
+  }
+  .hud button:hover { border-color: var(--accent); color: var(--text); }
+
+  .bar { position: fixed; left: 0; top: 0; height: 2px; background: var(--accent); z-index: 30; width: 0; }
+
+  :focus-visible { outline: 2px solid var(--accent-2); outline-offset: 3px; border-radius: 3px; }
+
+  .kicker { color: var(--faint); font-size: .95rem; max-width: 58ch; }
+  .meta { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 2rem; }
+</style>
+</head>
+<body>
+<div class="bar" id="bar"></div>
+
+<div class="deck" id="deck">
+
+  <!-- ——————————————————————————— TITLE ——————————————————————————— -->
+  <section class="slide" id="s0">
+    <p class="eyebrow">MadeEA EA Hub · Platform Update</p>
+    <h1>Six capabilities that turn an assistant tool into an operations system.</h1>
+    <p class="lede">
+      Every feature here exists to answer a question the old Hub couldn't:
+      <em>what do I need to know walking into this meeting? Are we slipping with this client?
+      What did we actually do for them? Who's carrying what?</em>
+    </p>
+    <div class="meta">
+      <span class="pill acct">Meeting Prep</span>
+      <span class="pill acct">Response-Time SLA</span>
+      <span class="pill acct">Voice Capture</span>
+      <span class="pill acct">Follow-up Nudges</span>
+      <span class="pill acct">Activity Log</span>
+      <span class="pill acct">Multi-EA Delegation</span>
+    </div>
+  </section>
+
+  <!-- ——————————————————————————— CONTENTS ——————————————————————————— -->
+  <section class="slide" id="s1">
+    <p class="eyebrow">What was added</p>
+    <h2>Each one closes a gap where work was quietly falling through.</h2>
+    <div class="index">
+      <a href="#s2">
+        <span class="cat">Preparation</span>
+        <h3>Smart Meeting Prep Packets</h3>
+        <p>One page per meeting: who they are, what's outstanding, what was last said.</p>
+      </a>
+      <a href="#s3">
+        <span class="cat">Service quality</span>
+        <h3>Response-Time SLA</h3>
+        <p>How fast each client actually gets answered — before it becomes a problem.</p>
+      </a>
+      <a href="#s4">
+        <span class="cat">Capture</span>
+        <h3>Voice-to-Task</h3>
+        <p>Speak a note between meetings; it lands as a structured task you confirm.</p>
+      </a>
+      <a href="#s5">
+        <span class="cat">Reliability</span>
+        <h3>Follow-up Nudges</h3>
+        <p>Emails you sent that nobody answered. The blind spot no inbox shows you.</p>
+      </a>
+      <a href="#s6">
+        <span class="cat">Accountability</span>
+        <h3>Client Activity Log</h3>
+        <p>Every task, email and meeting for a client, on one timeline.</p>
+      </a>
+      <a href="#s7">
+        <span class="cat">Team</span>
+        <h3>Multi-EA Delegation</h3>
+        <p>Assign work, see who's overloaded, keep a record of who moved what.</p>
+      </a>
+    </div>
+  </section>
+
+  <!-- ——————————————————————————— 1. MEETING PREP ——————————————————————————— -->
+  <section class="slide" id="s2">
+    <div class="split">
+      <div>
+        <p class="eyebrow">Preparation</p>
+        <h2>Smart Meeting Prep Packets</h2>
+        <p class="lede">
+          Before a meeting, the Hub assembles everything relevant into a single page — so nobody
+          walks in cold or spends twenty minutes digging through four sections.
+        </p>
+        <ul class="points">
+          <li>Who you're meeting, and whether they're a client or internal.</li>
+          <li>Their last email, last meeting and last completed task.</li>
+          <li>Open action items and recent documents for that client.</li>
+          <li>An AI brief that reads it all and tells you what matters.</li>
+        </ul>
+        <p class="note">
+          <b>The design call:</b> the raw context is assembled first, on the device, and only that
+          is sent to the model. It can't invent a client or a deadline that isn't in your data —
+          and if a meeting has no match, the packet shows what it has rather than erroring.
+        </p>
+      </div>
+
+      <div aria-hidden="true">
+        <div class="card">
+          <div class="row">
+            <span class="pill info">External</span>
+            <span class="s">Mon 13 Jul · 2:30 PM</span>
+          </div>
+          <p class="t" style="font-family:var(--display);font-size:1.35rem;margin:.5rem 0 .9rem">Q3 Planning Review</p>
+
+          <div style="border:1px solid rgba(253,88,18,.4);background:rgba(253,88,18,.08);border-radius:.6rem;padding:.8rem">
+            <p style="margin:0;font-size:.82rem;line-height:1.55">
+              Q3 Planning Review with <strong>Priya Raman</strong> (COO, Northwind Capital) — she prefers a
+              formal tone. Last contact 2 days ago about the board pack. <strong>2 open action items</strong>,
+              one urgent: “Send Q3 board pack to the investment committee.”
+            </p>
+          </div>
+
+          <div class="row" style="margin-top:.9rem">
+            <span class="chip c1">PR</span>
+            <span class="grow">
+              <span class="t" style="display:block">Priya Raman</span>
+              <span class="s">Chief Operating Officer, Northwind Capital</span>
+            </span>
+            <span class="pill mute">Email</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ——————————————————————————— 2. SLA ——————————————————————————— -->
+  <section class="slide" id="s3">
+    <div class="split">
+      <div>
+        <p class="eyebrow">Service quality</p>
+        <h2>Response-Time SLA</h2>
+        <p class="lede">
+          Responsiveness is the service. This measures it per client — average time to first reply,
+          the oldest email still waiting, and whether it's getting better or worse.
+        </p>
+        <ul class="points">
+          <li>On Track / At Risk / Breached, with thresholds you set.</li>
+          <li>Oldest unanswered email, surfaced before the client has to chase.</li>
+          <li>A trend arrow: are we slipping with this client, or improving?</li>
+        </ul>
+        <p class="note">
+          <b>The design call:</b> time is counted in <b>working hours</b>. An email arriving 6pm Friday
+          and answered 9am Monday costs one hour, not sixty-three — the metric measures
+          responsiveness, not weekends. An unanswered email is never averaged in as a zero;
+          it's reported separately as an open clock.
+        </p>
+      </div>
+
+      <div aria-hidden="true">
+        <div class="card">
+          <div class="row">
+            <span class="chip c2">MB</span>
+            <span class="grow"><span class="t" style="display:block">Marcus Bell</span><span class="s">Founder, Halden Studio</span></span>
+            <span class="pill bad">Breached</span>
+          </div>
+          <div class="kpis" style="margin-top:.9rem">
+            <div class="kpi"><span class="lbl">Average</span><span class="val" style="font-size:1.5rem">2d 3h</span></div>
+            <div class="kpi"><span class="lbl">Oldest waiting</span><span class="val" style="font-size:1.5rem">2d 7h</span></div>
+            <div class="kpi"><span class="lbl">Breaches</span><span class="val bad" style="font-size:1.5rem">4</span></div>
+          </div>
+          <p class="s" style="margin:.9rem 0 .5rem">Recent threads</p>
+          <div class="bars">
+            <div class="b"><span class="lab">invoice question</span><span class="track"><span class="fill r" style="width:92%"></span></span><span class="n">2d 3h</span></div>
+            <div class="b"><span class="lab">Re: kickoff</span><span class="track"><span class="fill r" style="width:100%"></span></span><span class="n">2d 6h</span></div>
+            <div class="b"><span class="lab">site visit</span><span class="track"><span class="fill r" style="width:84%"></span></span><span class="n">2d 1h</span></div>
+            <div class="b"><span class="lab">logo files</span><span class="track"><span class="fill a" style="width:44%"></span></span><span class="n">1d 1h</span></div>
+            <div class="b"><span class="lab">contract</span><span class="track"><span class="fill a" style="width:48%"></span></span><span class="n">1d 2h</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ——————————————————————————— 3. VOICE ——————————————————————————— -->
+  <section class="slide" id="s4">
+    <div class="split">
+      <div>
+        <p class="eyebrow">Capture</p>
+        <h2>Voice-to-Task</h2>
+        <p class="lede">
+          Between meetings, speak the thing you must not forget. It comes back as a structured task —
+          title, due date, client, priority — for you to confirm before it saves.
+        </p>
+        <ul class="points">
+          <li>“Remind me to send Priya the board pack by Friday, it's urgent.”</li>
+          <li>Parsed into an editable card. Nothing saves until you press Save.</li>
+          <li>Falls back to typing when the browser can't listen, or you'd rather type.</li>
+        </ul>
+        <p class="note">
+          <b>The design call:</b> the model reads intent and writes a clean title — but it is
+          <b>never trusted with dates</b>. “Friday” is resolved by deterministic code against the real
+          calendar; a date in the past, or over a year out, is discarded rather than saved. A task
+          silently due on the wrong day is worse than a task with no date.
+        </p>
+      </div>
+
+      <div aria-hidden="true">
+        <div class="card">
+          <p class="eyebrow quiet" style="margin-bottom:.6rem">Quick capture</p>
+          <p style="font-size:.8rem;font-style:italic;color:var(--faint);background:var(--raised);border-radius:.5rem;padding:.6rem .7rem;margin:0 0 .85rem">
+            “remind me to send Priya the Q3 board pack by friday, it's urgent”
+          </p>
+          <div style="display:grid;gap:.6rem">
+            <div>
+              <p class="s" style="margin:0 0 .25rem">Title</p>
+              <div style="background:var(--raised);border:1px solid var(--accent);border-radius:.5rem;padding:.5rem .7rem;font-size:.85rem">Send Priya the Q3 board pack</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+              <div>
+                <p class="s" style="margin:0 0 .25rem">Due date</p>
+                <div style="background:var(--raised);border:1px solid var(--rule);border-radius:.5rem;padding:.5rem .7rem;font-size:.85rem;font-family:var(--mono)">17 / 07 / 2026</div>
+              </div>
+              <div>
+                <p class="s" style="margin:0 0 .25rem">Priority</p>
+                <div style="background:var(--raised);border:1px solid var(--rule);border-radius:.5rem;padding:.5rem .7rem;font-size:.85rem">Urgent</div>
+              </div>
+            </div>
+            <div>
+              <p class="s" style="margin:0 0 .25rem">Client</p>
+              <div style="background:var(--raised);border:1px solid var(--rule);border-radius:.5rem;padding:.5rem .7rem;font-size:.85rem">Priya Raman</div>
+            </div>
+          </div>
+          <div style="background:var(--accent);color:#fff;text-align:center;border-radius:.5rem;padding:.5rem;margin-top:.8rem;font-size:.82rem;font-weight:600">Save task</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ——————————————————————————— 4. NUDGES ——————————————————————————— -->
+  <section class="slide" id="s5">
+    <div class="split">
+      <div>
+        <p class="eyebrow">Reliability</p>
+        <h2>Follow-up Nudges</h2>
+        <p class="lede">
+          The emails that fall through the cracks aren't the ones in your inbox — they're the ones
+          you <em>sent</em> and nobody answered. They sit in Sent, invisible, forever.
+        </p>
+        <ul class="points">
+          <li>Dead threads: mail you sent that got no reply after N days.</li>
+          <li>Stale tasks: started, then untouched and forgotten.</li>
+          <li>Each one says <em>why</em> it's flagged, with Follow up or Snooze.</li>
+        </ul>
+        <p class="note">
+          <b>The design call:</b> it deliberately does <b>not</b> re-flag unanswered incoming mail —
+          that's already an SLA breach, and nagging you twice about one problem under two different
+          names is exactly how people learn to ignore alerts.
+        </p>
+      </div>
+
+      <div aria-hidden="true">
+        <div class="card warn">
+          <div class="row">
+            <span class="grow">
+              <span class="t" style="display:block">Re: invoice question — revised schedule</span>
+              <span class="s">Marcus Bell · <b>No reply in 6 days</b></span>
+            </span>
+            <span class="pill mute">Snooze</span>
+            <span class="pill acct">Follow up</span>
+          </div>
+        </div>
+        <div class="card warn">
+          <div class="row">
+            <span class="grow">
+              <span class="t" style="display:block">Q3 offsite logistics</span>
+              <span class="s">Tom Whitfield · <b>No reply in 7 days</b></span>
+            </span>
+            <span class="pill mute">Snooze</span>
+            <span class="pill acct">Follow up</span>
+          </div>
+        </div>
+        <div class="card warn">
+          <div class="row">
+            <span class="grow">
+              <span class="t" style="display:block">Confirm auditor availability for October</span>
+              <span class="s">Priya Raman · <b>No update in 9 days</b></span>
+            </span>
+            <span class="pill mute">Snooze</span>
+            <span class="pill acct">Follow up</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ——————————————————————————— 5. ACTIVITY LOG ——————————————————————————— -->
+  <section class="slide" id="s6">
+    <div class="split">
+      <div>
+        <p class="eyebrow">Accountability</p>
+        <h2>Client Activity Log</h2>
+        <p class="lede">
+          “What did we actually do for this client last month?” — answered in one tab, instead of
+          reconstructed from three sections and a memory.
+        </p>
+        <ul class="points">
+          <li>Every task, email and meeting on one timeline, newest first.</li>
+          <li>Grouped by Today / This week / Last week / month.</li>
+          <li>Filter by type and date range; click any entry to open the real item.</li>
+        </ul>
+        <p class="note">
+          <b>The design call:</b> a task appears <b>twice</b> — when it was created and when it was
+          completed. Those answer different questions, and “what did we deliver” is almost always
+          the second one. Emails appear in both directions, so the record shows the conversation,
+          not a client emailing into a void.
+        </p>
+      </div>
+
+      <div aria-hidden="true">
+        <div class="card">
+          <p class="eyebrow quiet" style="margin-bottom:.9rem">This week</p>
+          <div class="tl">
+            <div class="e acc">
+              <span></span>
+              <span>
+                <span class="t" style="display:block">Re: Q3 board pack — one more thing</span>
+                <span class="s">Email received · 10 Jul, 09:00</span>
+              </span>
+            </div>
+            <div class="e acc">
+              <span></span>
+              <span>
+                <span class="t" style="display:block">Board pack — final</span>
+                <span class="s">Email sent · 8 Jul, 16:00</span>
+              </span>
+            </div>
+            <div class="e ok">
+              <span></span>
+              <span>
+                <span class="t" style="display:block">Circulate Q2 minutes</span>
+                <span class="s">Task completed · 6 Jul, 12:00</span>
+              </span>
+            </div>
+            <div class="e">
+              <span></span>
+              <span>
+                <span class="t" style="display:block">Send Q3 board pack to the committee</span>
+                <span class="s">Task created · 1 Jul, 09:00</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ——————————————————————————— 6. DELEGATION ——————————————————————————— -->
+  <section class="slide" id="s7">
+    <div class="split">
+      <div>
+        <p class="eyebrow">Team</p>
+        <h2>Multi-EA Delegation</h2>
+        <p class="lede">
+          Assign work to a named person, see at a glance who is buried and who has room,
+          and keep a record of who moved what onto whose plate.
+        </p>
+        <ul class="points">
+          <li>An assignee on every task card — click to reassign.</li>
+          <li>Filters: My Tasks, All Tasks, Unassigned, or one person.</li>
+          <li>A workload view: open, overdue, urgent, completed this week.</li>
+        </ul>
+        <p class="note">
+          <b>The design call:</b> the person who <em>created</em> a task and the person it's <em>for</em>
+          are different people — so reassigning never rewrites authorship. And every reassignment is
+          logged by the database itself, not by the app, so it's recorded no matter which route it
+          took. An audit trail the software can forget to write isn't an audit trail.
+        </p>
+      </div>
+
+      <div aria-hidden="true">
+        <div class="card">
+          <div class="row" style="margin-bottom:.9rem">
+            <span class="t">Team Workload</span>
+            <span class="pill warn" style="margin-left:auto">1 unassigned</span>
+          </div>
+          <div class="row">
+            <span class="chip c2">BS</span>
+            <span class="grow"><span class="t" style="display:block">Bryan Sumait</span><span class="s">EA</span></span>
+            <span class="s" style="font-family:var(--mono)"><b style="color:var(--text)">3</b> open</span>
+            <span class="pill bad">1 overdue</span>
+          </div>
+          <div class="row">
+            <span class="chip c1">AD</span>
+            <span class="grow"><span class="t" style="display:block">You (Admin)</span><span class="s">Admin</span></span>
+            <span class="s" style="font-family:var(--mono)"><b style="color:var(--text)">1</b> open</span>
+            <span class="pill mute">0 overdue</span>
+          </div>
+          <div class="row">
+            <span class="chip c3">BR</span>
+            <span class="grow"><span class="t" style="display:block">Belle Reyes</span><span class="s">EA</span></span>
+            <span class="s" style="font-family:var(--mono)"><b style="color:var(--text)">1</b> open</span>
+            <span class="pill mute">0 overdue</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ——————————————————————————— QUALITY ——————————————————————————— -->
+  <section class="slide" id="s8">
+    <div class="split">
+      <div>
+        <p class="eyebrow">How it was built</p>
+        <h2>Every control was clicked before this deck was written.</h2>
+        <p class="lede">
+          Features were driven in a real browser, not assumed to work. That sweep found things
+          nobody would have caught by eye.
+        </p>
+        <ul class="points">
+          <li><strong>187 controls</strong> clicked across all 13 pages, watching for errors.</li>
+          <li>A render loop on the Tasks board — invisible, but burning CPU on the busiest page.</li>
+          <li><strong>14 buttons that looked live and did nothing.</strong> All now work.</li>
+        </ul>
+        <p class="note">
+          A button that appears to work and doesn't is worse than no button at all — it teaches
+          people to distrust the tool.
+        </p>
+      </div>
+
+      <div aria-hidden="true">
+        <div class="card">
+          <div class="kpis">
+            <div class="kpi"><span class="lbl">Controls tested</span><span class="val">187</span></div>
+            <div class="kpi"><span class="lbl">Pages swept</span><span class="val">13</span></div>
+            <div class="kpi hot"><span class="lbl">Bugs found</span><span class="val bad">15</span></div>
+          </div>
+          <p class="s" style="margin:1rem 0 .5rem">Automation run history — pass / fail at a glance</p>
+          <div class="row">
+            <span class="grow"><span class="t">Executive Summary Inbox</span></span>
+            <span class="strip"><i class="g"></i><i class="r"></i><i class="g"></i><i class="g"></i><i class="r"></i><i class="r"></i></span>
+          </div>
+          <div class="row">
+            <span class="grow"><span class="t">Priority Alignment</span></span>
+            <span class="strip"><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ——————————————————————————— STATUS ——————————————————————————— -->
+  <section class="slide" id="s9">
+    <p class="eyebrow">Where things stand</p>
+    <h2>What's running today, and what's waiting on the switch.</h2>
+    <p class="lede">
+      All six features are built, tested and deployed. Three of them read data the Hub has never
+      captured before — those need the database updated and the mail/calendar sync redeployed
+      before the numbers are real rather than demonstrative.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Capability</th><th>Status</th><th>What it still needs</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Meeting Prep Packets</td><td><span class="pill ok">Live</span></td><td>Optional: connect Claude for the written brief</td></tr>
+          <tr><td>Voice-to-Task</td><td><span class="pill ok">Live</span></td><td>Nothing — works today</td></tr>
+          <tr><td>Client Activity Log</td><td><span class="pill warn">Partial</span></td><td>Completed-task and meeting history</td></tr>
+          <tr><td>Multi-EA Delegation</td><td><span class="pill warn">Partial</span></td><td>Assignment column in the database</td></tr>
+          <tr><td>Response-Time SLA</td><td><span class="pill info">Needs sync</span></td><td>Mail sync must record replies</td></tr>
+          <tr><td>Follow-up Nudges</td><td><span class="pill info">Needs sync</span></td><td>Mail sync must record sent mail</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="kicker" style="margin-top:1.5rem">
+      One database update and one sync redeploy switches on the last four together. Until then the
+      Hub shows an honest empty state rather than inventing numbers.
+    </p>
+  </section>
+
+  <!-- ——————————————————————————— CLOSE ——————————————————————————— -->
+  <section class="slide" id="s10">
+    <p class="eyebrow">In short</p>
+    <h1>The Hub now notices things before you do.</h1>
+    <p class="lede">
+      A client going quiet. A reply that's taking too long. A task nobody picked up. An email you
+      sent that vanished. Work that used to depend on someone remembering now depends on the system
+      surfacing it.
+    </p>
+    <p class="kicker">MadeEA EA Hub · Platform update prepared for client review.</p>
+  </section>
+
+</div>
+
+<nav class="rail" id="rail" aria-label="Slides"></nav>
+
+<div class="hud">
+  <span class="brand"><b>MADE/EA</b> &nbsp;EA Hub — Platform Update</span>
+  <button id="prev" type="button" aria-label="Previous slide">←</button>
+  <button id="next" type="button" aria-label="Next slide">→</button>
+  <span class="count" id="count">01 / 11</span>
+</div>
+
+<script>
+  const deck = document.getElementById("deck");
+  const slides = [...deck.querySelectorAll(".slide")];
+  const rail = document.getElementById("rail");
+  const count = document.getElementById("count");
+  const bar = document.getElementById("bar");
+  let current = 0;
+
+  const titles = ["Title", "Contents", "Meeting Prep", "Response-Time SLA", "Voice-to-Task",
+                  "Follow-up Nudges", "Activity Log", "Delegation", "How it was built",
+                  "Where things stand", "In short"];
+
+  slides.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.setAttribute("aria-label", `Slide ${i + 1}: ${titles[i]}`);
+    b.addEventListener("click", () => go(i));
+    rail.appendChild(b);
+  });
+  const dots = [...rail.children];
+
+  function go(i) {
+    current = Math.max(0, Math.min(slides.length - 1, i));
+    slides[current].scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }
+
+  function paint(i) {
+    current = i;
+    dots.forEach((d, n) => d.setAttribute("aria-current", String(n === i)));
+    count.textContent = `${String(i + 1).padStart(2, "0")} / ${String(slides.length).padStart(2, "0")}`;
+    bar.style.width = ((i + 1) / slides.length * 100) + "%";
+  }
+
+  // Reveal the slide that's actually on screen, and keep the chrome in sync.
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting) {
+        e.target.classList.add("live");
+        paint(slides.indexOf(e.target));
+      }
+    });
+  }, { threshold: 0.55 });
+  slides.forEach((s) => io.observe(s));
+
+  document.getElementById("prev").addEventListener("click", () => go(current - 1));
+  document.getElementById("next").addEventListener("click", () => go(current + 1));
+
+  addEventListener("keydown", (e) => {
+    if (["ArrowRight", "ArrowDown", "PageDown", " "].includes(e.key)) { e.preventDefault(); go(current + 1); }
+    if (["ArrowLeft", "ArrowUp", "PageUp"].includes(e.key)) { e.preventDefault(); go(current - 1); }
+    if (e.key === "Home") { e.preventDefault(); go(0); }
+    if (e.key === "End") { e.preventDefault(); go(slides.length - 1); }
+  });
+
+  paint(0);
+  slides[0].classList.add("live");
+</script>
+</body>
+</html>
