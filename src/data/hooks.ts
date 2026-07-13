@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import * as seed from "@/data/seed";
 import type { Task, TaskStatus, Client, Meeting, Message, Automation, Sop, SopRun, AutomationRun, Reminder } from "@/types/db";
 import type { ClientDoc } from "@/lib/meetingPrep";
+import { addDemoTask, loadDemoTasks, removeDemoTask, updateDemoTask } from "@/store/demoTasks";
 
 // Live Supabase data layer with a read-only seed fallback for demo mode
 // (no creds). owner_id + workspace_id auto-fill via column defaults (migration
@@ -34,7 +35,7 @@ export function useTasks() {
   return useQuery<Task[]>({
     queryKey: ["tasks"],
     queryFn: async () => {
-      if (!supabase) return seed.TASKS;
+      if (!supabase) return [...loadDemoTasks(), ...seed.TASKS];
       const { data, error } = await supabase
         .from("tasks")
         .select("id,title,due_label,due_at,priority,status,subtasks,recurrence,depends_on,client_id,clients(name)")
@@ -51,7 +52,7 @@ export function useTaskMutations() {
 
   const setStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: TaskStatus }) => {
-      if (!supabase) return;
+      if (!supabase) { updateDemoTask(id, { status }); return; }
       const { error } = await supabase.from("tasks").update({ status }).eq("id", id);
       if (error) throw error;
       // Recurring tasks spawn their next instance on completion.
@@ -77,16 +78,35 @@ export function useTaskMutations() {
     onSettled: invalidate,
   });
 
+  // client_id was always a column on `tasks`, but nothing ever set it — so every
+  // task created in the app came out "Unassigned". Voice capture needs it, and so
+  // does the manual form.
   type TaskInput = {
     title: string; priority?: Task["priority"]; due_at?: string | null;
     subtasks?: Task["subtasks"]; recurrence?: Task["recurrence"]; depends_on?: string | null;
+    client_id?: string | null;
   };
   const create = useMutation({
     mutationFn: async (input: TaskInput) => {
-      if (!supabase) return;
+      if (!supabase) {
+        addDemoTask({
+          id: `local-${Date.now()}`,
+          title: input.title,
+          client_name: seed.CLIENTS.find((c) => c.id === input.client_id)?.name ?? "Unassigned",
+          due_label: input.due_at ? new Date(`${input.due_at}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long" }) : "",
+          due_at: input.due_at ?? null,
+          priority: input.priority ?? "normal",
+          status: "todo",
+          subtasks: input.subtasks ?? [],
+          recurrence: input.recurrence ?? "none",
+          depends_on: input.depends_on ?? null,
+        });
+        return;
+      }
       const { error } = await supabase.from("tasks").insert({
         title: input.title, priority: input.priority ?? "normal", due_at: input.due_at ?? null, status: "todo",
         subtasks: input.subtasks ?? [], recurrence: input.recurrence ?? "none", depends_on: input.depends_on ?? null,
+        client_id: input.client_id ?? null,
       });
       if (error) throw error;
     },
@@ -95,7 +115,7 @@ export function useTaskMutations() {
 
   const update = useMutation({
     mutationFn: async ({ id, ...fields }: Partial<TaskInput> & { id: string }) => {
-      if (!supabase) return;
+      if (!supabase) { updateDemoTask(id, fields as Partial<Task>); return; }
       const { error } = await supabase.from("tasks").update(fields).eq("id", id);
       if (error) throw error;
     },
@@ -104,7 +124,7 @@ export function useTaskMutations() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      if (!supabase) return;
+      if (!supabase) { removeDemoTask(id); return; }
       const { error } = await supabase.from("tasks").delete().eq("id", id);
       if (error) throw error;
     },

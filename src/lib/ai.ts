@@ -34,6 +34,8 @@ export async function generate(payload: GeneratePayload): Promise<string> {
 }
 
 import type { PrepContext } from "@/lib/meetingPrep";
+import { localParse, validateParsed, type ParseResult, type RawParsed } from "@/lib/voiceTask";
+import type { Client } from "@/types/db";
 
 export interface MeetingBrief {
   summary: string;
@@ -92,6 +94,40 @@ function offlineBrief(ctx: PrepContext): string {
   if (docs.length) parts.push(`${docs.length} recent document${docs.length === 1 ? "" : "s"} on file, latest ${docs[0].when}.`);
 
   return parts.join(" ");
+}
+
+/**
+ * Parse a spoken note into task fields. Sends the transcript (plus the client
+ * roster, so the model can only pick a real name) to the `voice-parse` Edge
+ * Function, then puts the answer through `validateParsed` — which re-derives any
+ * relative date locally and drops anything it can't verify.
+ *
+ * If the function isn't deployed yet, this falls back to the deterministic local
+ * parser rather than failing. The returned `source` says which one ran, so the UI
+ * can be honest about it.
+ */
+export async function parseVoiceTask(
+  transcript: string,
+  clients: Client[],
+): Promise<ParseResult> {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase.functions.invoke("voice-parse", {
+        body: {
+          transcript,
+          today: new Date().toISOString().slice(0, 10),
+          clients: clients.map((c) => ({ id: c.id, name: c.name, company: c.company })),
+        },
+      });
+      if (error) throw error;
+      const parsed = (data as { parsed?: RawParsed }).parsed;
+      if (parsed) return validateParsed(parsed, transcript, clients);
+    } catch {
+      // Not deployed, or a transient failure — the local parser is a fine floor.
+    }
+  }
+  await new Promise((r) => setTimeout(r, 350));
+  return localParse(transcript, clients);
 }
 
 export interface ChatMessage {

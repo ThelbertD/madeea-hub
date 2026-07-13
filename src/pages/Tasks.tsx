@@ -10,7 +10,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Plus, Trash2, GripVertical, Pencil, CalendarDays, CheckSquare, Repeat, Lock, X, Copy } from "lucide-react";
 import type { Task, TaskStatus, Priority, Subtask, Recurrence } from "@/types/db";
 import { Badge, PageHeader, Modal } from "@/components/ui";
-import { useTasks, useTaskMutations } from "@/data/hooks";
+import { useTasks, useTaskMutations, useClients } from "@/data/hooks";
 import { TASK_TEMPLATES, type TaskTemplate } from "@/lib/taskTemplates";
 import { cn } from "@/lib/utils";
 
@@ -93,13 +93,14 @@ function Column({ status, label, items, blockedIds, onDelete, onEdit }: { status
   );
 }
 
-const BLANK = { title: "", priority: "normal" as Priority, due: "", subtasks: [] as Subtask[], recurrence: "none" as Recurrence, dependsOn: "" };
+const BLANK = { title: "", priority: "normal" as Priority, due: "", subtasks: [] as Subtask[], recurrence: "none" as Recurrence, dependsOn: "", clientId: "" };
 const EMPTY_TASKS: Task[] = [];
 
 export default function Tasks() {
   const { data, isLoading } = useTasks();
   const tasks = data ?? EMPTY_TASKS;
   const { setStatus, create, update, remove } = useTaskMutations();
+  const { data: clients = [] } = useClients();
   const [board, setBoard] = useState<Board>(group([]));
   const [activeId, setActiveId] = useState<string | null>(null);
   const [modal, setModal] = useState(false);
@@ -163,11 +164,11 @@ export default function Tasks() {
 
   function startCreate() { setForm(BLANK); setEditingId(null); setModal(true); }
   function startEdit(t: Task) {
-    setForm({ title: t.title, priority: t.priority, due: t.due_at ? t.due_at.slice(0, 10) : "", subtasks: t.subtasks ?? [], recurrence: t.recurrence ?? "none", dependsOn: t.depends_on ?? "" });
+    setForm({ title: t.title, priority: t.priority, due: t.due_at ? t.due_at.slice(0, 10) : "", subtasks: t.subtasks ?? [], recurrence: t.recurrence ?? "none", dependsOn: t.depends_on ?? "", clientId: clients.find((c) => c.name === t.client_name)?.id ?? "" });
     setEditingId(t.id); setModal(true);
   }
   function fromTemplate(t: TaskTemplate) {
-    setForm({ title: t.title, priority: t.priority, due: "", recurrence: "none", dependsOn: "", subtasks: t.subtasks.map((l, i) => ({ id: `${Date.now()}-${i}`, label: l, done: false })) });
+    setForm({ title: t.title, priority: t.priority, due: "", recurrence: "none", dependsOn: "", clientId: "", subtasks: t.subtasks.map((l, i) => ({ id: `${Date.now()}-${i}`, label: l, done: false })) });
     setEditingId(null); setTemplates(false); setModal(true);
   }
   function submit() {
@@ -175,6 +176,7 @@ export default function Tasks() {
     const payload = {
       title: form.title.trim(), priority: form.priority, due_at: form.due || null,
       subtasks: form.subtasks.filter((s) => s.label.trim()), recurrence: form.recurrence, depends_on: form.dependsOn || null,
+      client_id: form.clientId || null,
     };
     if (editingId) update.mutate({ id: editingId, ...payload });
     else create.mutate(payload);
@@ -263,6 +265,14 @@ export default function Tasks() {
                 {tasks.filter((t) => t.id !== editingId).map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="field-label">Client</label>
+            <select className="input" value={form.clientId} onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))}>
+              <option value="">— Unassigned —</option>
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
           </div>
 
           <button className="btn-primary w-full" onClick={submit} disabled={!form.title.trim() || saving}>
