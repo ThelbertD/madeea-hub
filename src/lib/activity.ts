@@ -13,11 +13,12 @@
  *       rather than a client emailing into a void.
  *   meeting — one event, at starts_at.
  */
-import type { Client, Meeting, Message, Task } from "@/types/db";
+import type { Client, Meeting, Message, Task, TaskEvent } from "@/types/db";
 
 export type ActivityKind =
   | "task_created"
   | "task_completed"
+  | "task_reassigned"
   | "email_in"
   | "email_out"
   | "meeting";
@@ -63,9 +64,19 @@ export const DATE_RANGES: { label: string; days: number | null }[] = [
 const isFor = (client: Client, clientId?: string | null, clientName?: string | null): boolean =>
   (clientId != null && clientId === client.id) || (!!clientName && clientName === client.name);
 
+export interface ActivitySources {
+  tasks: Task[];
+  messages: Message[];
+  meetings: Meeting[];
+  /** Reassignments (migration 0015). Optional so callers that don't care can omit them. */
+  taskEvents?: TaskEvent[];
+  /** user_id -> display name, for rendering "Reassigned from X to Y". */
+  names?: Record<string, string>;
+}
+
 export function buildActivity(
   client: Client,
-  sources: { tasks: Task[]; messages: Message[]; meetings: Meeting[] },
+  sources: ActivitySources,
   filters: ActivityFilters,
   now = new Date(),
 ): ActivityEntry[] {
@@ -105,6 +116,32 @@ export function buildActivity(
         });
       }
     }
+  }
+
+  // Reassignments — who moved this client's work onto whose plate, and when.
+  const clientTaskIds = new Map(
+    sources.tasks.filter((t) => isFor(client, t.client_id, t.client_name)).map((t) => [t.id, t]),
+  );
+  for (const ev of sources.taskEvents ?? []) {
+    const task = clientTaskIds.get(ev.task_id);
+    if (!task) continue;
+    const nameOf = (id: string | null) => (id ? (sources.names?.[id] ?? "someone") : null);
+    const from = nameOf(ev.from_user_id);
+    const to = nameOf(ev.to_user_id);
+    entries.push({
+      id: `task_reassigned:${ev.id}`,
+      kind: "task_reassigned",
+      type: "task",
+      title: task.title,
+      action: !to
+        ? `Unassigned${from ? ` from ${from}` : ""}`
+        : from
+          ? `Reassigned from ${from} to ${to}`
+          : `Assigned to ${to}`,
+      at: ev.created_at,
+      status: null,
+      href: `/tasks?task=${task.id}`,
+    });
   }
 
   for (const m of sources.messages) {

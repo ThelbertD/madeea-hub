@@ -76,6 +76,7 @@ function thread(opts: {
 export const CLIENTS: Client[] = [
   {
     id: "demo-client-1",
+    lead_ea_id: "demo-1",
     name: "Priya Raman",
     title: "Chief Operating Officer",
     company: "Northwind Capital",
@@ -91,6 +92,7 @@ export const CLIENTS: Client[] = [
   },
   {
     id: "demo-client-2",
+    lead_ea_id: "demo-2",
     name: "Marcus Bell",
     title: "Founder",
     company: "Halden Studio",
@@ -105,6 +107,7 @@ export const CLIENTS: Client[] = [
   },
   {
     id: "demo-client-3",
+    lead_ea_id: "demo-3",
     name: "Elena Fischer",
     title: "Managing Partner",
     company: "Vantage Group",
@@ -167,6 +170,7 @@ export const MEETINGS: Meeting[] = [
 export const TASKS: Task[] = [
   {
     id: "demo-task-1",
+    assignee_id: "demo-1",
     client_id: "demo-client-1",
     created_at: at(-12, 9),
     completed_at: null,
@@ -183,6 +187,7 @@ export const TASKS: Task[] = [
   },
   {
     id: "demo-task-2",
+    assignee_id: "demo-2",
     client_id: "demo-client-1",
     created_at: at(-20, 14),
     completed_at: null,
@@ -199,9 +204,10 @@ export const TASKS: Task[] = [
   },
   {
     id: "demo-task-3",
+    assignee_id: "demo-2",
     client_id: "demo-client-1",
     created_at: at(-14, 10),
-    completed_at: at(-7, 12), // completed -> its own timeline entry
+    completed_at: at(-3, 12), // completed -> its own timeline entry
     updated_at: at(-7, 12), // old, but DONE -> must never be flagged
     title: "Circulate Q2 minutes",
     client_name: "Priya Raman",
@@ -215,6 +221,7 @@ export const TASKS: Task[] = [
   },
   {
     id: "demo-task-4",
+    assignee_id: "demo-3",
     client_id: "demo-client-2",
     created_at: at(-16, 10),
     completed_at: null,
@@ -232,6 +239,7 @@ export const TASKS: Task[] = [
   // Delivered work — the entries that answer "what did we do last month".
   {
     id: "demo-task-5",
+    assignee_id: "demo-1",
     client_id: "demo-client-1",
     created_at: at(-33, 11),
     completed_at: at(-24, 16),
@@ -246,8 +254,62 @@ export const TASKS: Task[] = [
     recurrence: "none",
     depends_on: null,
   },
+  // Bryan is carrying too much — the imbalance the workload view exists to show.
+  {
+    id: "demo-task-7",
+    assignee_id: "demo-2",
+    client_id: "demo-client-3",
+    created_at: at(-8, 9),
+    completed_at: null,
+    updated_at: at(-2, 9),
+    title: "Draft the Vantage lease summary",
+    client_name: "Elena Fischer",
+    due_label: "Yesterday",
+    due_at: at(-1, 17), // overdue
+    priority: "urgent",
+    status: "in_progress",
+    subtasks: [],
+    recurrence: "none",
+    depends_on: null,
+  },
+  {
+    id: "demo-task-8",
+    assignee_id: "demo-2",
+    client_id: "demo-client-2",
+    created_at: at(-5, 11),
+    completed_at: null,
+    updated_at: at(-3, 11),
+    title: "Chase the Halden photography quote",
+    client_name: "Marcus Bell",
+    due_label: "Today",
+    due_at: at(0, 17),
+    priority: "high",
+    status: "todo",
+    subtasks: [],
+    recurrence: "none",
+    depends_on: null,
+  },
+  // Nobody has picked this up — a legitimate state, not a broken row.
+  {
+    id: "demo-task-9",
+    assignee_id: null,
+    client_id: "demo-client-1",
+    created_at: at(-4, 14),
+    completed_at: null,
+    updated_at: at(-4, 14),
+    title: "Renew the Northwind NDA",
+    client_name: "Priya Raman",
+    due_label: "Next week",
+    due_at: at(5, 12),
+    priority: "normal",
+    status: "todo",
+    subtasks: [],
+    recurrence: "none",
+    depends_on: null,
+  },
   {
     id: "demo-task-6",
+    assignee_id: null,
     client_id: "demo-client-2",
     created_at: at(-19, 9),
     completed_at: at(-17, 15),

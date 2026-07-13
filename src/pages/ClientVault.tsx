@@ -5,6 +5,8 @@ import { Badge, PageHeader, Modal } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
 import { SlaBadge, TrendArrow, TREND_LABEL } from "@/components/SlaBadge";
 import { ClientActivity } from "@/components/ClientActivity";
+import { AssigneeAvatar } from "@/components/Assignee";
+import { useWorkspaceMembers } from "@/data/hooks";
 import { useClients, useTasks, useMeetings, useMessages, useClientMutations } from "@/data/hooks";
 import { useSlaSettings } from "@/store/slaSettings";
 import { clientSla, dayLength, formatDuration } from "@/lib/sla";
@@ -18,6 +20,7 @@ export default function ClientVault() {
   const { data: meetings = [] } = useMeetings();
   const { data: messages = [] } = useMessages();
   const { create, update, remove } = useClientMutations();
+  const { data: members = [] } = useWorkspaceMembers();
   const cfg = useSlaSettings((s) => s.config);
   const dl = dayLength(cfg);
   const [open, setOpen] = useState<Client | null>(null);
@@ -139,6 +142,18 @@ export default function ClientVault() {
                   </p>
                 )}
               </div>
+
+              {/* Lead EA — accountability, not access control: every EA still sees
+                  every client (RLS from 0012 is unchanged). */}
+              {(() => {
+                const lead = members.find((m) => m.user_id === c.lead_ea_id) ?? null;
+                return (
+                  <div className="mt-3 flex items-center gap-1.5 text-xs text-muted">
+                    <AssigneeAvatar member={lead} />
+                    <span>{lead ? `Lead: ${lead.name}` : "No lead EA"}</span>
+                  </div>
+                );
+              })()}
 
               {(c.preferred_channel || c.tone) && (
                 <div className="mt-3 flex items-center gap-1.5 text-xs text-muted">

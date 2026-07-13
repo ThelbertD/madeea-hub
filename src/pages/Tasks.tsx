@@ -13,6 +13,8 @@ import type { Task, TaskStatus, Priority, Subtask, Recurrence } from "@/types/db
 import { Badge, PageHeader, Modal } from "@/components/ui";
 import { useTasks, useTaskMutations, useClients } from "@/data/hooks";
 import { useFollowUps } from "@/hooks/useFollowUps";
+import { AssigneePicker, AssigneeAvatar } from "@/components/Assignee";
+import { useWorkspaceMembers } from "@/data/hooks";
 import { FollowUpRow } from "@/components/FollowUpRow";
 import { TASK_TEMPLATES, type TaskTemplate } from "@/lib/taskTemplates";
 import { cn } from "@/lib/utils";
@@ -44,6 +46,9 @@ function CardBody({ task, blocked, onDelete, onEdit, overlay }: { task: Task; bl
       <div className="flex items-start gap-2">
         <GripVertical size={14} className="mt-0.5 shrink-0 text-faint" />
         <p className="flex-1 text-sm font-medium">{task.title}</p>
+        {/* Who this is for. Click to reassign — the overlay copy shown while dragging
+            gets a plain avatar, since a menu inside a drag preview makes no sense. */}
+        {overlay ? <AssigneeAvatar member={null} /> : <AssigneePicker task={task} />}
         {onEdit && (
           <button className="text-faint opacity-0 transition-opacity hover:text-accent group-hover:opacity-100" onPointerDown={stop} onClick={onEdit} aria-label="Edit task">
             <Pencil size={13} />
@@ -102,7 +107,7 @@ function Column({ status, label, items, blockedIds, onDelete, onEdit, focusId }:
   );
 }
 
-const BLANK = { title: "", priority: "normal" as Priority, due: "", subtasks: [] as Subtask[], recurrence: "none" as Recurrence, dependsOn: "", clientId: "" };
+const BLANK = { title: "", priority: "normal" as Priority, due: "", subtasks: [] as Subtask[], recurrence: "none" as Recurrence, dependsOn: "", clientId: "", assigneeId: "" };
 const EMPTY_TASKS: Task[] = [];
 
 export default function Tasks() {
@@ -111,6 +116,9 @@ export default function Tasks() {
   const { setStatus, create, update, remove } = useTaskMutations();
   const { data: clients = [] } = useClients();
   const { flags } = useFollowUps();
+  const { data: members = [] } = useWorkspaceMembers();
+  // "mine" | "all" | a specific member id
+  const [who, setWho] = useState<string>("all");
   // Deep link from the client activity timeline: /tasks?task=<id>
   const [params, setParams] = useSearchParams();
   const focusId = params.get("task");
@@ -122,7 +130,15 @@ export default function Tasks() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(BLANK);
 
-  useEffect(() => { if (!activeId) setBoard(group(tasks)); }, [tasks, activeId]);
+  const me = members.find((m) => m.is_me);
+  const visible = tasks.filter((t) => {
+    if (who === "all") return true;
+    if (who === "unassigned") return !t.assignee_id;
+    if (who === "mine") return t.assignee_id === me?.user_id;
+    return t.assignee_id === who;
+  });
+
+  useEffect(() => { if (!activeId) setBoard(group(visible)); }, [visible, activeId]);
 
   // Scroll the linked card into view and let the highlight fade, rather than
   // dumping the user on a board and making them hunt for the row.
@@ -188,11 +204,11 @@ export default function Tasks() {
 
   function startCreate() { setForm(BLANK); setEditingId(null); setModal(true); }
   function startEdit(t: Task) {
-    setForm({ title: t.title, priority: t.priority, due: t.due_at ? t.due_at.slice(0, 10) : "", subtasks: t.subtasks ?? [], recurrence: t.recurrence ?? "none", dependsOn: t.depends_on ?? "", clientId: clients.find((c) => c.name === t.client_name)?.id ?? "" });
+    setForm({ title: t.title, priority: t.priority, due: t.due_at ? t.due_at.slice(0, 10) : "", subtasks: t.subtasks ?? [], recurrence: t.recurrence ?? "none", dependsOn: t.depends_on ?? "", clientId: clients.find((c) => c.name === t.client_name)?.id ?? "", assigneeId: t.assignee_id ?? "" });
     setEditingId(t.id); setModal(true);
   }
   function fromTemplate(t: TaskTemplate) {
-    setForm({ title: t.title, priority: t.priority, due: "", recurrence: "none", dependsOn: "", clientId: "", subtasks: t.subtasks.map((l, i) => ({ id: `${Date.now()}-${i}`, label: l, done: false })) });
+    setForm({ title: t.title, priority: t.priority, due: "", recurrence: "none", dependsOn: "", clientId: "", assigneeId: "", subtasks: t.subtasks.map((l, i) => ({ id: `${Date.now()}-${i}`, label: l, done: false })) });
     setEditingId(null); setTemplates(false); setModal(true);
   }
   function submit() {
@@ -201,6 +217,7 @@ export default function Tasks() {
       title: form.title.trim(), priority: form.priority, due_at: form.due || null,
       subtasks: form.subtasks.filter((s) => s.label.trim()), recurrence: form.recurrence, depends_on: form.dependsOn || null,
       client_id: form.clientId || null,
+      assignee_id: form.assigneeId || null,
     };
     if (editingId) update.mutate({ id: editingId, ...payload });
     else create.mutate(payload);
@@ -237,6 +254,42 @@ export default function Tasks() {
           </div>
         </section>
       )}
+
+      {/* Who am I looking at? */}
+      <div className="mb-4 flex flex-wrap items-center gap-1.5">
+        {[
+          { id: "all", label: "All Tasks" },
+          { id: "mine", label: "My Tasks" },
+          { id: "unassigned", label: "Unassigned" },
+        ].map((f) => (
+          <button
+            key={f.id}
+            onClick={() => setWho(f.id)}
+            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+              who === f.id ? "bg-accent text-white" : "bg-surface-2 text-muted hover:text-zinc-100"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+        <span className="mx-1 h-4 w-px bg-border" />
+        {members.map((m) => (
+          <button
+            key={m.user_id}
+            onClick={() => setWho(who === m.user_id ? "all" : m.user_id)}
+            title={m.name}
+            className={`flex items-center gap-1.5 rounded-lg py-1 pl-1 pr-2 text-xs font-medium transition-colors ${
+              who === m.user_id ? "bg-accent text-white" : "bg-surface-2 text-muted hover:text-zinc-100"
+            }`}
+          >
+            <AssigneeAvatar member={m} />
+            {m.name.split(" ")[0]}
+          </button>
+        ))}
+        <span className="ml-auto text-xs text-faint">
+          {visible.length} of {tasks.length} task{tasks.length === 1 ? "" : "s"}
+        </span>
+      </div>
 
       {isLoading ? (
         <p className="text-sm text-faint">Loading tasks…</p>
@@ -304,12 +357,21 @@ export default function Tasks() {
             </div>
           </div>
 
-          <div>
-            <label className="field-label">Client</label>
-            <select className="input" value={form.clientId} onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))}>
-              <option value="">— Unassigned —</option>
-              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="field-label">Client</label>
+              <select className="input" value={form.clientId} onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))}>
+                <option value="">— No client —</option>
+                {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="field-label">Assignee</label>
+              <select className="input" value={form.assigneeId} onChange={(e) => setForm((f) => ({ ...f, assigneeId: e.target.value }))}>
+                <option value="">— Unassigned —</option>
+                {members.map((m) => <option key={m.user_id} value={m.user_id}>{m.name}{m.is_me ? " (you)" : ""}</option>)}
+              </select>
+            </div>
           </div>
 
           <button className="btn-primary w-full" onClick={submit} disabled={!form.title.trim() || saving}>

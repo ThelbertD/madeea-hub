@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import * as seed from "@/data/seed";
-import type { Task, TaskStatus, Client, Meeting, Message, Automation, Sop, SopRun, AutomationRun, Reminder, Snooze } from "@/types/db";
+import type { Task, TaskStatus, Client, Meeting, Message, Automation, Sop, SopRun, AutomationRun, Reminder, Snooze, TaskEvent } from "@/types/db";
 import type { ClientDoc } from "@/lib/meetingPrep";
 import { addDemoTask, loadDemoTasks, removeDemoTask, updateDemoTask } from "@/store/demoTasks";
 import { loadSnoozes, saveSnooze } from "@/store/demoSnoozes";
+import { loadAssignees, loadDemoTaskEvents, saveAssignee } from "@/store/demoAssignees";
 
 // Live Supabase data layer with a read-only seed fallback for demo mode
 // (no creds). owner_id + workspace_id auto-fill via column defaults (migration
@@ -24,6 +25,7 @@ const mapTask = (r: TaskRow): Task => ({
   completed_at: (r as { completed_at?: string | null }).completed_at ?? null,
   // Keep the FK, not just the joined name — the timeline needs to match on id.
   client_id: r.client_id ?? null,
+  assignee_id: (r as { assignee_id?: string | null }).assignee_id ?? null,
   client_name: r.clients?.name ?? "Unassigned",
 });
 
@@ -41,7 +43,14 @@ export function useTasks() {
   return useQuery<Task[]>({
     queryKey: ["tasks"],
     queryFn: async () => {
-      if (!supabase) return [...loadDemoTasks(), ...seed.TASKS];
+      if (!supabase) {
+        // Demo mode has no DB, so reassignments live in localStorage and are
+        // layered over the seed tasks here.
+        const overrides = loadAssignees();
+        return [...loadDemoTasks(), ...seed.TASKS].map((t) =>
+          t.id in overrides ? { ...t, assignee_id: overrides[t.id] } : t,
+        );
+      }
       const { data, error } = await supabase
         .from("tasks")
         // `*` rather than an explicit column list: migration 0013 adds updated_at, and
@@ -93,6 +102,7 @@ export function useTaskMutations() {
     title: string; priority?: Task["priority"]; due_at?: string | null;
     subtasks?: Task["subtasks"]; recurrence?: Task["recurrence"]; depends_on?: string | null;
     client_id?: string | null;
+    assignee_id?: string | null;
   };
   const create = useMutation({
     mutationFn: async (input: TaskInput) => {
@@ -115,6 +125,7 @@ export function useTaskMutations() {
         title: input.title, priority: input.priority ?? "normal", due_at: input.due_at ?? null, status: "todo",
         subtasks: input.subtasks ?? [], recurrence: input.recurrence ?? "none", depends_on: input.depends_on ?? null,
         client_id: input.client_id ?? null,
+        assignee_id: input.assignee_id ?? null,
       });
       if (error) throw error;
     },
@@ -504,11 +515,29 @@ export interface Member {
   is_me: boolean;
 }
 
-const DEMO_MEMBERS: Member[] = [
-  { user_id: "demo-1", role: "admin", name: "You (Admin)", initials: "AD", joined_at: "2026-01-10", open_tasks: 4, clients: 3, is_me: true },
-  { user_id: "demo-2", role: "ea", name: "Bryan Sumait", initials: "BS", joined_at: "2026-03-02", open_tasks: 6, clients: 2, is_me: false },
-  { user_id: "demo-3", role: "ea", name: "Belle Reyes", initials: "BR", joined_at: "2026-04-15", open_tasks: 3, clients: 1, is_me: false },
+// open_tasks / clients used to be hardcoded numbers here — a workload view that
+// looked real and wasn't. They're derived from the demo tasks/clients below, the
+// same way live mode derives them.
+const DEMO_MEMBER_BASE: Omit<Member, "open_tasks" | "clients">[] = [
+  { user_id: "demo-1", role: "admin", name: "You (Admin)", initials: "AD", joined_at: "2026-01-10", is_me: true },
+  { user_id: "demo-2", role: "ea", name: "Bryan Sumait", initials: "BS", joined_at: "2026-03-02", is_me: false },
+  { user_id: "demo-3", role: "ea", name: "Belle Reyes", initials: "BR", joined_at: "2026-04-15", is_me: false },
 ];
+
+function demoMembers(): Member[] {
+  const overrides = loadAssignees();
+  const tasks = [...loadDemoTasks(), ...seed.TASKS].map((t) =>
+    t.id in overrides ? { ...t, assignee_id: overrides[t.id] } : t,
+  );
+  return DEMO_MEMBER_BASE.map((m) => ({
+    ...m,
+    open_tasks: tasks.filter((t) => t.assignee_id === m.user_id && t.status !== "done").length,
+    clients: seed.CLIENTS.filter((c) => c.lead_ea_id === m.user_id).length,
+  }));
+}
+
+/** The signed-in user in demo mode — there is no real auth, so assume the admin. */
+export const DEMO_ME = "demo-1";
 
 // Current user's role. NOTE: this is for UI gating only — the real boundary is
 // Postgres RLS (admins-only writes on memberships, workspace isolation).
@@ -533,7 +562,7 @@ export function useWorkspaceMembers() {
   return useQuery<Member[]>({
     queryKey: ["members"],
     queryFn: async () => {
-      if (!supabase) return DEMO_MEMBERS;
+      if (!supabase) return demoMembers();
       const { data: auth } = await supabase.auth.getUser();
       const myId = auth.user?.id ?? "";
       const { data: mem, error } = await supabase
@@ -542,20 +571,22 @@ export function useWorkspaceMembers() {
       const ids = (mem ?? []).map((m) => m.user_id);
       const [profsRes, tasksRes, clientsRes] = await Promise.all([
         supabase.from("profiles").select("id, full_name, initials").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]),
-        supabase.from("tasks").select("owner_id, status"),
-        supabase.from("clients").select("owner_id"),
+        // assignee_id (0015), not owner_id: "open tasks" must mean work on your
+        // plate, not work you happened to create for someone else.
+        supabase.from("tasks").select("*"),
+        supabase.from("clients").select("*"),
       ]);
       const pm = Object.fromEntries((profsRes.data ?? []).map((p) => [p.id, p]));
-      const tasks = tasksRes.data ?? [];
-      const clients = clientsRes.data ?? [];
+      const tasks = (tasksRes.data ?? []) as { assignee_id?: string | null; status: string }[];
+      const clients = (clientsRes.data ?? []) as { lead_ea_id?: string | null; owner_id?: string | null }[];
       return (mem ?? []).map((m) => ({
         user_id: m.user_id,
         role: m.role as MemberRole,
         name: pm[m.user_id]?.full_name ?? "Team member",
         initials: pm[m.user_id]?.initials ?? "EA",
         joined_at: m.created_at,
-        open_tasks: tasks.filter((t) => t.owner_id === m.user_id && t.status !== "done").length,
-        clients: clients.filter((c) => c.owner_id === m.user_id).length,
+        open_tasks: tasks.filter((t) => t.assignee_id === m.user_id && t.status !== "done").length,
+        clients: clients.filter((c) => (c.lead_ea_id ?? c.owner_id) === m.user_id).length,
         is_me: m.user_id === myId,
       }));
     },
@@ -638,4 +669,53 @@ export function useSnoozeMutations() {
   });
 
   return { snooze };
+}
+
+// ---------------- delegation ----------------
+// Reassigning a task. In live mode the trigger from migration 0015 writes the
+// task_events row; here we only change the field. In demo mode there is no DB, so
+// both the assignment and its audit entry are kept in localStorage.
+export function useAssignTask() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      task_id, from, to, actor_id,
+    }: { task_id: string; from: string | null; to: string | null; actor_id: string }) => {
+      if (!supabase) { saveAssignee(task_id, from, to, actor_id); return; }
+      const { error } = await supabase.from("tasks").update({ assignee_id: to }).eq("id", task_id);
+      if (error) throw error;
+    },
+    onMutate: async ({ task_id, to }) => {
+      await qc.cancelQueries({ queryKey: ["tasks"] });
+      const prev = qc.getQueryData<Task[]>(["tasks"]);
+      qc.setQueryData<Task[]>(["tasks"], (ts) =>
+        (ts ?? []).map((t) => (t.id === task_id ? { ...t, assignee_id: to } : t)),
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => ctx?.prev && qc.setQueryData(["tasks"], ctx.prev),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["task_events"] });
+    },
+  });
+}
+
+/** Reassignment history. Feeds the client activity timeline. */
+export function useTaskEvents() {
+  return useQuery<TaskEvent[]>({
+    queryKey: ["task_events"],
+    queryFn: async () => {
+      if (!supabase) return loadDemoTaskEvents();
+      const { data, error } = await supabase
+        .from("task_events")
+        .select("id,task_id,actor_id,from_user_id,to_user_id,created_at")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) return loadDemoTaskEvents(); // table not migrated yet
+      return data as TaskEvent[];
+    },
+    retry: false,
+  });
 }

@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  CheckSquare, CheckCircle2, Mail, Send, Calendar, ChevronRight, History,
+  CheckSquare, CheckCircle2, Mail, Send, Calendar, ChevronRight, History, UserCog,
 } from "lucide-react";
 import { Badge } from "@/components/ui";
-import { useMeetings, useMessages, useTasks } from "@/data/hooks";
+import { useMeetings, useMessages, useTasks, useTaskEvents, useWorkspaceMembers } from "@/data/hooks";
 import {
   buildActivity, groupByDate, formatTime, ALL_TYPES, DATE_RANGES,
   type ActivityEntry, type ActivityType,
@@ -14,6 +14,7 @@ import type { Client } from "@/types/db";
 const ICONS = {
   task_created: CheckSquare,
   task_completed: CheckCircle2,
+  task_reassigned: UserCog,
   email_in: Mail,
   email_out: Send,
   meeting: Calendar,
@@ -22,6 +23,7 @@ const ICONS = {
 const ICON_TONE: Record<ActivityEntry["kind"], string> = {
   task_created: "text-faint",
   task_completed: "text-emerald-400",
+  task_reassigned: "text-amber-400",
   email_in: "text-sky-400",
   email_out: "text-accent",
   meeting: "text-violet-400",
@@ -38,26 +40,32 @@ export function ClientActivity({ client }: { client: Client }) {
   const { data: tasks = [] } = useTasks();
   const { data: messages = [] } = useMessages();
   const { data: meetings = [] } = useMeetings();
+  const { data: taskEvents = [] } = useTaskEvents();
+  const { data: members = [] } = useWorkspaceMembers();
+  const names = useMemo(
+    () => Object.fromEntries(members.map((m) => [m.user_id, m.name])),
+    [members],
+  );
 
   const [types, setTypes] = useState<Set<ActivityType>>(new Set(ALL_TYPES));
   const [days, setDays] = useState<number | null>(90);
 
   const entries = useMemo(
-    () => buildActivity(client, { tasks, messages, meetings }, { types, days }),
-    [client, tasks, messages, meetings, types, days],
+    () => buildActivity(client, { tasks, messages, meetings, taskEvents, names }, { types, days }),
+    [client, tasks, messages, meetings, taskEvents, names, types, days],
   );
   const groups = useMemo(() => groupByDate(entries), [entries]);
 
   // Counts ignore the type filter, so the chips can show what you'd get by toggling.
   const totals = useMemo(() => {
-    const all = buildActivity(client, { tasks, messages, meetings }, { types: new Set(ALL_TYPES), days });
+    const all = buildActivity(client, { tasks, messages, meetings, taskEvents, names }, { types: new Set(ALL_TYPES), days });
     return {
       task: all.filter((e) => e.type === "task").length,
       email: all.filter((e) => e.type === "email").length,
       meeting: all.filter((e) => e.type === "meeting").length,
       all: all.length,
     };
-  }, [client, tasks, messages, meetings, days]);
+  }, [client, tasks, messages, meetings, taskEvents, names, days]);
 
   const toggle = (t: ActivityType) =>
     setTypes((prev) => {

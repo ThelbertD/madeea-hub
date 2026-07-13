@@ -10,6 +10,7 @@ import { useSlaSettings } from "@/store/slaSettings";
 import { clientSla, dayLength, formatDuration, waitingHours, thresholdsFor } from "@/lib/sla";
 import { useFollowUps } from "@/hooks/useFollowUps";
 import { FollowUpRow } from "@/components/FollowUpRow";
+import { AssigneePicker } from "@/components/Assignee";
 import type { Meeting } from "@/types/db";
 
 const KPI_ICONS = [CheckSquare, Calendar, Mail, Timer, BellRing, Workflow];
@@ -141,6 +142,8 @@ export default function Dashboard() {
                   <p className="truncate text-sm font-medium">{t.title}</p>
                   <p className="truncate text-xs text-faint">{t.client_name} · {t.due_label}</p>
                 </div>
+                {/* Who's carrying this — reassignable without leaving the dashboard. */}
+                <AssigneePicker task={t} />
                 <Badge tone={t.priority}>{priorityLabel[t.priority]}</Badge>
               </div>
             ))}

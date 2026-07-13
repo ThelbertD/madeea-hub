@@ -20,6 +20,11 @@ export interface Client {
   /** Per-client SLA overrides. Null/absent = fall back to the global thresholds. */
   sla_ok_hours?: number | null;
   sla_risk_hours?: number | null;
+  /**
+   * The EA accountable for this client (migration 0015). Informational only —
+   * RLS is unchanged, so every EA still sees every client.
+   */
+  lead_ea_id?: string | null;
 }
 
 export interface AutomationRun {
@@ -56,6 +61,21 @@ export interface Task {
   created_at?: string | null;
   /** Stamped by a trigger when status flips to done (migration 0014). */
   completed_at?: string | null;
+  /**
+   * Who the task is FOR (migration 0015). Distinct from owner_id, which is who
+   * created it. Null is a legitimate state: nobody has picked it up yet.
+   */
+  assignee_id?: string | null;
+}
+
+/** One reassignment, written by a DB trigger on every assignee_id change. */
+export interface TaskEvent {
+  id: string;
+  task_id: string;
+  actor_id: string | null;
+  from_user_id: string | null;
+  to_user_id: string | null;
+  created_at: string;
 }
 
 export interface Message {
