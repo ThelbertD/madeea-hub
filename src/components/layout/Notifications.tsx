@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, AlertCircle, CheckSquare, CalendarClock, Clock, Plus, X, BellOff, MailQuestion, Clock3, Workflow } from "lucide-react";
+import { Bell, AlertCircle, CheckSquare, CalendarClock, Clock, Plus, X, BellOff, MailQuestion, Clock3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useMessages, useTasks, useReminders, useReminderMutations, useSnoozeMutations, useAutomations, useAutomationRuns } from "@/data/hooks";
-import { healthReport, failing } from "@/lib/automationHealth";
+import { useMessages, useTasks, useReminders, useReminderMutations, useSnoozeMutations } from "@/data/hooks";
 import { useFollowUps } from "@/hooks/useFollowUps";
 import { useFollowUpSettings } from "@/store/followupSettings";
 
@@ -37,12 +36,6 @@ export function Notifications() {
   const { flags } = useFollowUps();
   const { snooze } = useSnoozeMutations();
   const snoozeDays = useFollowUpSettings((s) => s.config.snoozeDays);
-  const { data: automations = [] } = useAutomations();
-  const { data: automationRuns = [] } = useAutomationRuns();
-  const brokenAutomations = useMemo(
-    () => failing(healthReport(automations, automationRuns)),
-    [automations, automationRuns],
-  );
 
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
@@ -60,18 +53,7 @@ export function Notifications() {
 
   const items = useMemo<Notif[]>(() => {
     const out: Notif[] = [];
-    // A broken automation is the most silent failure in the app — it just stops
-    // working. It reuses the existing read-set, so it surfaces once, not forever.
-    for (const h of brokenAutomations) {
-      out.push({
-        id: `automation-failed-${h.automation.id}-${h.lastRun?.id ?? "x"}`,
-        icon: Workflow,
-        title: "Automation failed",
-        desc: `${h.automation.name} · ${h.lastError?.slice(0, 60) ?? "see details"}`,
-        path: "/automation",
-      });
-    }
-    // Follow-ups next: a thread nobody replied to is invisible everywhere else.
+    // Follow-ups lead: a thread nobody replied to is invisible everywhere else.
     for (const f of flags) {
       out.push({
         id: f.id,
@@ -97,7 +79,7 @@ export function Notifications() {
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, tasks, flags, brokenAutomations]);
+  }, [messages, tasks, flags]);
 
   const dueReminders = reminders.filter((r) => new Date(r.remind_at).getTime() <= now);
   const upcoming = reminders.filter((r) => new Date(r.remind_at).getTime() > now);

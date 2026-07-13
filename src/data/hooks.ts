@@ -344,14 +344,12 @@ export function useAutomationRuns() {
   return useQuery<AutomationRun[]>({
     queryKey: ["automation_runs"],
     queryFn: async () => {
-      if (!supabase) return seed.AUTOMATION_RUNS;
+      if (!supabase) return [];
       const { data, error } = await supabase
         .from("automation_runs")
-        // `*` so the status / error_message / duration_ms columns from migration
-        // 0014 flow through the moment they exist.
-        .select("*")
+        .select("id,automation_id,ran_at,summary,output")
         .order("ran_at", { ascending: false })
-        .limit(200);
+        .limit(50);
       if (error) throw error;
       return data as AutomationRun[];
     },

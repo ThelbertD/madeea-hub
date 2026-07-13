@@ -22,20 +22,12 @@ export interface Client {
   sla_risk_hours?: number | null;
 }
 
-export type RunStatus = "running" | "succeeded" | "failed";
-
 export interface AutomationRun {
   id: string;
   automation_id: string;
   ran_at: string;
   summary: string | null;
   output: { text?: string } | null;
-  // Added by migration 0014. Absent on rows written before it — and those are all
-  // successes, because a failure never made it to the table at all.
-  status?: RunStatus;
-  error_message?: string | null;
-  duration_ms?: number | null;
-  finished_at?: string | null;
 }
 
 export interface Subtask {

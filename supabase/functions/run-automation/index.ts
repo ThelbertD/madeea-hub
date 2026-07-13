@@ -1,12 +1,6 @@
 // Edge Function: run-automation   (Verify JWT: OFF — auth enforced in code)
 // POST { automation_id } -> runs the automation on the caller's live data with
-// OpenAI, records the run (succeeded OR failed), bumps counters.
-// Returns { summary, output } or { error }.
-//
-// The run row is written BEFORE the work starts, as 'running', and updated to
-// 'succeeded' / 'failed' once it settles. Previously a crash returned a 500 and
-// recorded nothing at all, so failures were invisible — the whole point of the
-// health monitor is that they aren't. Requires migration 0014.
+// OpenAI, records a run, bumps counters. Returns { summary, output }.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
@@ -49,26 +43,6 @@ Deno.serve(async (req) => {
       .from("automations").select("id,name,automation_key,total_runs,trigger,action").eq("id", automation_id).single();
     if (aErr || !automation) return json({ error: "automation not found" }, 404);
 
-    // Claim the run up front. If the function dies mid-flight the row is left as
-    // 'running', which the health view reports as a stuck run rather than
-    // pretending nothing happened.
-    const startedAt = Date.now();
-    const { data: run } = await supa
-      .from("automation_runs")
-      .insert({ automation_id, status: "running", summary: "Running…" })
-      .select("id")
-      .single();
-    const runId = run?.id ?? null;
-
-    const finish = async (fields: Record<string, unknown>) => {
-      if (!runId) return;
-      await supa
-        .from("automation_runs")
-        .update({ ...fields, duration_ms: Date.now() - startedAt, finished_at: new Date().toISOString() })
-        .eq("id", runId);
-    };
-
-    try {
     const key = automation.automation_key ?? "custom";
     let summary = "";
     let output = "";
@@ -110,19 +84,11 @@ Deno.serve(async (req) => {
       summary = `Ran ${automation.name}.`;
     }
 
-    await finish({ status: "succeeded", summary, output: { text: output }, error_message: null });
+    await supa.from("automation_runs").insert({ automation_id, summary, output: { text: output } });
     await supa.from("automations").update({ total_runs: (automation.total_runs ?? 0) + 1, last_run_at: new Date().toISOString() }).eq("id", automation_id);
 
     return json({ summary, output });
-    } catch (e) {
-      // The failure is now a first-class record, not a lost 500.
-      const message = String(e instanceof Error ? e.message : e);
-      await finish({ status: "failed", summary: "Run failed", error_message: message.slice(0, 2000) });
-      await supa.from("automations").update({ last_run_at: new Date().toISOString() }).eq("id", automation_id);
-      return json({ error: message }, 500);
-    }
   } catch (e) {
-    // Failed before we could even claim a run row (bad auth, bad payload).
     return json({ error: String(e instanceof Error ? e.message : e) }, 500);
   }
 });

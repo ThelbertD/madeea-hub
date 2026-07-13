@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Play, Clock, Workflow, Save, Loader2, ChevronDown, ChevronUp, Trash2, RotateCw, AlertTriangle, CalendarOff } from "lucide-react";
+import { Play, Clock, Workflow, Save, Loader2, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { AUTOMATION_TRIGGERS as T, AUTOMATION_ACTIONS as A } from "@/lib/constants";
 import { Badge, PageHeader } from "@/components/ui";
 import { OutputViewer } from "@/components/OutputViewer";
 import { useAutomations, useAutomationMutations, useAutomationRuns } from "@/data/hooks";
-import { healthReport, failing, STATUS_LABEL, STATUS_TONE, formatDuration, timeAgo } from "@/lib/automationHealth";
 import { supabase } from "@/lib/supabase";
 
 export default function AutomationPage() {
@@ -19,10 +18,6 @@ export default function AutomationPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [note, setNote] = useState("");
-  const [showError, setShowError] = useState<string | null>(null);
-
-  const report = healthReport(autos, runs);
-  const broken = failing(report);
 
   function save() {
     if (!name.trim()) return;
@@ -54,21 +49,9 @@ export default function AutomationPage() {
 
   return (
     <div>
-      <PageHeader title="Automation Health" subtitle="What ran, what worked, and what broke" />
+      <PageHeader title="Automation Dashboard" subtitle="MadeEA's core automation suite — built for elite executive operations" />
 
       {note && <div className="mb-4 rounded-lg border border-border bg-surface-2 px-4 py-2 text-sm text-muted">{note}</div>}
-
-      {broken.length > 0 && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm">
-          <AlertTriangle size={16} className="shrink-0 text-red-400" />
-          <span>
-            <span className="font-medium text-red-400">
-              {broken.length} automation{broken.length === 1 ? "" : "s"} failing
-            </span>
-            <span className="text-muted"> — {broken.map((h) => h.automation.name).join(", ")}</span>
-          </span>
-        </div>
-      )}
 
       <h2 className="mb-3 font-semibold">Automations</h2>
       {isLoading ? (
@@ -77,13 +60,11 @@ export default function AutomationPage() {
         <div className="card p-8 text-center text-sm text-faint">No automations yet. Build one below.</div>
       ) : (
         <div className="space-y-3">
-          {report.map((h) => {
-            const a = h.automation;
+          {autos.map((a) => {
             const latest = runs.find((r) => r.automation_id === a.id);
             const isOpen = expanded === a.id;
-            const isBroken = h.status === "failed";
             return (
-              <div key={a.id} className={`card group p-5 ${isBroken ? "border-red-500/40 bg-red-500/[0.03]" : ""}`}>
+              <div key={a.id} className="card group p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex gap-3">
                     <Workflow size={18} className="mt-0.5 shrink-0 text-accent-soft" />
@@ -111,68 +92,18 @@ export default function AutomationPage() {
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-faint">
-                  <Badge tone={STATUS_TONE[h.status]}>{STATUS_LABEL[h.status]}</Badge>
-                  <span className="flex items-center gap-1">
-                    <Clock size={12} /> Last run {timeAgo(h.lastRun?.ran_at)}
-                    {h.lastRun?.duration_ms != null && ` · ${formatDuration(h.lastRun.duration_ms)}`}
-                  </span>
-                  {/* Nothing here runs on a timer — every run is a button press. Saying so
-                      beats inventing a next-run time that will never arrive. */}
-                  <span className="flex items-center gap-1" title="No scheduler is configured — automations run when you press Run Now">
-                    <CalendarOff size={12} /> Manual — not scheduled
-                  </span>
+                  <Badge tone={a.status}>{a.status === "active" ? "Active" : "Paused"}</Badge>
+                  <span className="flex items-center gap-1"><Clock size={12} /> Last run: {a.last_run}</span>
                   <span>{a.total_runs} total runs</span>
-
-                  {h.history.length > 0 && (
-                    <span className="flex items-center gap-1" title={`Last ${h.history.length} runs, oldest first`}>
-                      {h.history.map((r) => (
-                        <span
-                          key={r.id}
-                          className={`h-3 w-1.5 rounded-sm ${
-                            r.status === "failed" ? "bg-red-500" : r.status === "running" ? "bg-sky-500" : "bg-emerald-500/70"
-                          }`}
-                        />
-                      ))}
-                      {h.failureCount > 0 && (
-                        <span className="ml-1 text-amber-400">{h.failureCount}/{h.history.length} failed</span>
-                      )}
-                    </span>
-                  )}
-
                   {latest && (
                     <button className="flex items-center gap-1 text-accent-soft hover:underline" onClick={() => setExpanded(isOpen ? null : a.id)}>
                       {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />} {isOpen ? "Hide" : "View"} last result
                     </button>
                   )}
-
-                  <div className="ml-auto flex items-center gap-2">
-                    {isBroken && (
-                      <button
-                        className="flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 font-medium text-red-400 hover:bg-red-500/20"
-                        onClick={() => setShowError(showError === a.id ? null : a.id)}
-                      >
-                        <AlertTriangle size={12} /> {showError === a.id ? "Hide error" : "Show error"}
-                      </button>
-                    )}
-                    <button
-                      className={isBroken ? "btn-primary py-1.5" : "btn-ghost border border-border py-1.5"}
-                      onClick={() => runNow(a.id)}
-                      disabled={busyId === a.id}
-                    >
-                      {busyId === a.id ? <Loader2 size={13} className="animate-spin" /> : isBroken ? <RotateCw size={13} /> : <Play size={13} />}
-                      {isBroken ? "Retry" : "Run Now"}
-                    </button>
-                  </div>
+                  <button className="btn-ghost ml-auto border border-border py-1.5" onClick={() => runNow(a.id)} disabled={busyId === a.id}>
+                    {busyId === a.id ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />} Run Now
+                  </button>
                 </div>
-
-                {isBroken && showError === a.id && h.lastError && (
-                  <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/5 p-3">
-                    <p className="eyebrow mb-1.5 text-red-400">Last error · {timeAgo(h.lastRun?.ran_at)}</p>
-                    <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-red-300/90">
-                      {h.lastError}
-                    </pre>
-                  </div>
-                )}
                 {isOpen && latest?.output?.text && (
                   <div className="mt-4 border-t border-border pt-4">
                     {latest.summary && <p className="mb-2 text-xs text-faint">{latest.summary}</p>}

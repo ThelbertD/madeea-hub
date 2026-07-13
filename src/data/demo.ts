@@ -6,7 +6,7 @@
  * empty arrays and reads real records from Supabase. This file exists purely so a
  * preview build has something on screen to click, and it is inert everywhere else.
  */
-import type { Automation, AutomationRun, Client, Meeting, Message, Task } from "@/types/db";
+import type { Client, Meeting, Message, Task } from "@/types/db";
 import { addBusinessHours } from "@/lib/sla";
 import { DEFAULT_SLA } from "@/store/slaSettings";
 
@@ -296,109 +296,4 @@ export const MESSAGES: Message[] = [
   sent({ client: null, to: "Tom Whitfield", subject: "Q3 offsite logistics", preview: "Chasing the venue contract — can you confirm the numbers?", daysAgo: 7, hour: 9, replyAfterDays: null }),
   // Control: answered, so it must NOT be flagged.
   sent({ client: PRIYA, to: "Priya Raman", subject: "Board pack — final", preview: "Final version attached ahead of Thursday.", daysAgo: 5, hour: 16, replyAfterDays: 1 }),
-];
-
-// ---------------------------------------------------------------------------
-// Automations + run history.
-//
-// Descriptions say what each automation DOES, not when it runs — nothing here is
-// on a timer, every run is a button press, and claiming "every morning at 7:30am"
-// would be a lie the health view immediately contradicts.
-// ---------------------------------------------------------------------------
-export const AUTOMATIONS: Automation[] = [
-  {
-    id: "demo-auto-1",
-    name: "Executive Priority Alignment",
-    description: "Analyses your calendar, emails and task list to produce a prioritised daily briefing, flagging conflicts and urgent items.",
-    status: "active",
-    last_run: new Date(now - 2 * 3_600_000).toLocaleString(),
-    total_runs: 34,
-    trigger: "Manual",
-    action: "Generate daily briefing",
-  },
-  {
-    id: "demo-auto-2",
-    name: "Meeting Preparation",
-    description: "Compiles attendee profiles, agenda drafts and prep notes for upcoming meetings.",
-    status: "active",
-    last_run: new Date(now - 26 * 3_600_000).toLocaleString(),
-    total_runs: 18,
-    trigger: "Manual",
-    action: "Generate meeting briefs",
-  },
-  {
-    id: "demo-auto-3",
-    name: "Executive Summary Inbox",
-    description: "Triages the inbox — archives newsletters and surfaces only what needs executive attention.",
-    status: "active",
-    last_run: new Date(now - 5 * 3_600_000).toLocaleString(),
-    total_runs: 51,
-    trigger: "Manual",
-    action: "Triage inbox",
-  },
-  {
-    id: "demo-auto-4",
-    name: "Weekly Client Digest",
-    description: "Summarises the week's activity per client into a single digest.",
-    status: "paused",
-    last_run: new Date(now - 9 * 86_400_000).toLocaleString(),
-    total_runs: 7,
-    trigger: "Manual",
-    action: "Generate client digest",
-    is_custom: true,
-  },
-];
-
-let runSeq = 0;
-const run = (
-  automation_id: string,
-  hoursAgo: number,
-  status: "succeeded" | "failed" | "running",
-  detail: { summary?: string; error?: string; ms?: number },
-): AutomationRun => {
-  const ran = new Date(now - hoursAgo * 3_600_000);
-  return {
-    id: `demo-run-${++runSeq}`,
-    automation_id,
-    ran_at: ran.toISOString(),
-    status,
-    summary: detail.summary ?? (status === "failed" ? "Run failed" : "Run complete"),
-    output: status === "succeeded" ? { text: detail.summary ?? "" } : null,
-    error_message: detail.error ?? null,
-    duration_ms: detail.ms ?? null,
-    finished_at: status === "running" ? null : new Date(ran.getTime() + (detail.ms ?? 0)).toISOString(),
-  };
-};
-
-// A real upstream error, not a placeholder — this is the shape an OpenAI failure
-// actually takes, which is what makes it fixable at a glance.
-const RATE_LIMIT =
-  "OpenAI 429: {\"error\":{\"message\":\"Rate limit reached for gpt-4o in organization org-madeea on requests per min (RPM): Limit 500, Used 500. Please try again in 120ms.\",\"type\":\"requests\",\"code\":\"rate_limit_exceeded\"}}";
-
-export const AUTOMATION_RUNS: AutomationRun[] = [
-  // Inbox triage: broken, and it's been flapping — the strip shows the pattern.
-  run("demo-auto-3", 5, "failed", { error: RATE_LIMIT, ms: 1180 }),
-  run("demo-auto-3", 29, "failed", { error: RATE_LIMIT, ms: 940 }),
-  run("demo-auto-3", 53, "succeeded", { summary: "Triaged 24 messages; 3 newsletters archived.", ms: 4200 }),
-  run("demo-auto-3", 77, "succeeded", { summary: "Triaged 19 messages; 1 newsletter archived.", ms: 3900 }),
-  run("demo-auto-3", 101, "failed", { error: RATE_LIMIT, ms: 1020 }),
-  run("demo-auto-3", 125, "succeeded", { summary: "Triaged 31 messages.", ms: 4600 }),
-
-  // Priority alignment: healthy.
-  run("demo-auto-1", 2, "succeeded", { summary: "Daily brief generated — 3 open tasks, 4 meetings, 1 urgent.", ms: 5100 }),
-  run("demo-auto-1", 26, "succeeded", { summary: "Daily brief generated — 5 open tasks, 2 meetings.", ms: 4800 }),
-  run("demo-auto-1", 50, "succeeded", { summary: "Daily brief generated — 4 open tasks, 3 meetings.", ms: 5300 }),
-  run("demo-auto-1", 74, "succeeded", { summary: "Daily brief generated — 6 open tasks.", ms: 4700 }),
-
-  // Meeting prep: healthy, but one blip a while back.
-  run("demo-auto-2", 26, "succeeded", { summary: "Prepared 4 upcoming meeting(s).", ms: 6200 }),
-  run("demo-auto-2", 74, "succeeded", { summary: "Prepared 2 upcoming meeting(s).", ms: 5800 }),
-  run("demo-auto-2", 122, "failed", {
-    error: "TypeError: Cannot read properties of null (reading 'name') — meeting 'Internal Ops Standup' has no client attached.",
-    ms: 320,
-  }),
-  run("demo-auto-2", 146, "succeeded", { summary: "Prepared 3 upcoming meeting(s).", ms: 6000 }),
-
-  // Paused automation, last run was fine.
-  run("demo-auto-4", 216, "succeeded", { summary: "Digest generated for 3 clients.", ms: 7400 }),
 ];
