@@ -28,7 +28,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-bg p-4">
       <div className="card w-full max-w-sm p-7">
         <div className="mb-6 text-center">
-          <img src="/logo.png" alt="MadeEA" className="mx-auto mb-3 h-9 w-auto" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="MadeEA" className="mx-auto mb-3 h-9 w-auto" />
           <p className="eyebrow text-accent/80">Command Center</p>
         </div>
 

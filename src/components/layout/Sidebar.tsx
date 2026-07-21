@@ -13,7 +13,9 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <aside className="flex h-full w-64 flex-col border-r border-border bg-surface">
       <div className="px-5 py-5">
-        <img src="/logo.png" alt="MadeEA" className="h-7 w-auto" />
+        {/* BASE_URL, not a root-absolute path: on GitHub Pages the app is served
+            from /madeea-hub/, so "/logo.png" resolves to the domain root and 404s. */}
+        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="MadeEA" className="h-7 w-auto" />
         <p className="eyebrow mt-2 text-accent/80">Command Center</p>
       </div>
 

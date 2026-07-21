@@ -11,7 +11,9 @@ export function exportToPdf(title: string, bodyHtml: string) {
     alert("Allow pop-ups for this site to export PDF.");
     return;
   }
-  const logo = `${window.location.origin}/logo.png`;
+  // BASE_URL is "/" on Vercel and "/madeea-hub/" on GitHub Pages. Hardcoding the
+  // root path put a broken image in every exported PDF on Pages.
+  const logo = `${window.location.origin}${import.meta.env.BASE_URL}logo.png`;
   w.document.write(`<!doctype html>
 <html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <style>
